@@ -1,0 +1,182 @@
+// styles.scss
+@import 'variables';
+
+// Mixins
+@mixin flex-center {
+  display: flex;
+  align-items: center;
+}
+
+@mixin card-base {
+  background: #fff;
+  border-radius: $border-radius;
+  padding: $spacing-lg;
+}
+
+@mixin hover-transform {
+  transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  
+  &:hover {
+    transform: translateY(-0.125rem);
+    box-shadow: $shadow-hover;
+  }
+}
+
+// Text Utilities
+.text-info {
+  color: $info;
+  font-weight: 500;
+}
+
+small.text-muted {
+  font-size: 0.85rem;
+  color: $gray-500;
+}
+
+//Execution Summary
+.execution-summary {
+    @include card-base;
+    
+    .summary-stats {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: $spacing-md;
+      margin-bottom: $spacing-lg;
+    }
+  
+    .stat-card {
+      background: $gray-100;
+      padding: $spacing-md;
+      border-radius: $border-radius;
+      text-align: center;
+  
+      .stat-value {
+        font-size: 1.5rem;
+        font-weight: bold;
+        color: $primary;
+      }
+  
+      .stat-label {
+        color: $gray-600;
+        font-size: 0.9rem;
+      }
+    }
+  
+    .execution-trend-chart {
+      height: 300px;
+      margin: $spacing-lg 0;
+    }
+  
+    .execution-patterns {
+      display: flex;
+      gap: $spacing-lg;
+      margin-top: $spacing-lg;
+  
+      .pattern-chart {
+        flex: 1;
+        height: 200px;
+      }
+    }
+  }
+// Add these to your existing styles.scss
+
+// Job Metrics specific styles
+.job-metrics-view {
+  @include card-base;
+  
+  .metric-card {
+    @include card-base;
+    background: $gray-100;
+    text-align: center;
+    
+    h4 {
+      color: $gray-600;
+      font-size: $font-size-sm;
+      margin-bottom: $spacing-sm;
+      text-transform: uppercase;
+    }
+    
+    span {
+      font-size: $font-size-xl;
+      font-weight: bold;
+      color: $primary;
+    }
+  }
+
+  table {
+    margin-top: $spacing-lg;
+    
+    th {
+      cursor: pointer;
+      position: relative;
+      padding-right: $spacing-lg;
+      
+      &:hover {
+        background-color: $gray-100;
+      }
+      
+      &:after {
+        content: '↕';
+        position: absolute;
+        right: $spacing-sm;
+        opacity: 0.5;
+      }
+    }
+    
+    td {
+      vertical-align: middle;
+    }
+  }
+
+  // Loading state
+  .loading-overlay {
+    background: rgba(255, 255, 255, 0.8);
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+  }
+}
+
+// Success/Failure indicators
+.success-rate {
+  &.high {
+    color: $success;
+  }
+  
+  &.medium {
+    color: $info;
+  }
+  
+  &.low {
+    color: $alert-info-text;
+  }
+}
+
+// Duration formatting
+.duration {
+  color: $gray-700;
+  font-family: monospace;
+}
+
+// Responsive adjustments
+@media (max-width: $breakpoint-md) {
+  .job-metrics-view {
+    .metric-card {
+      margin-bottom: $spacing-md;
+    }
+    
+    table {
+      font-size: $font-size-sm;
+      
+      th {
+        white-space: nowrap;
+      }
+    }
+  }
+}

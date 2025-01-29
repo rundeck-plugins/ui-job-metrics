@@ -1,0 +1,27 @@
+name: ui-jobmetrics
+rundeckPluginVersion: 1.2
+author: Your Name
+url: https://github.com/yourusername/ui-execution-summary
+date: 2024-01-29
+version: 1.0.0
+providers:
+    - name: ui-jobmetrics
+      service: UI
+      plugin-type: ui
+      title: "Job Execution Metrics"
+      description: "Job Execution Summary Views on Job List and Job Activities pages"
+      properties:
+        - name: defaultTimeWindow
+          title: 'Default Time Window (days)'
+          type: Integer
+          required: false
+          default: '30'
+          description: 'Default time window for execution statistics'
+      ui:
+        - pages: '*'
+          scripts:
+            - js/chart.min.js
+            - js/init.js
+            - js/job-metrics.js
+          styles:
+            - scss/styles.css

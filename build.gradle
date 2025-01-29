@@ -1,0 +1,160 @@
+buildscript {
+    repositories {
+        mavenCentral()
+        maven { url "https://repo.grails.org/grails/core" }
+    }
+    dependencies {
+        classpath 'com.bertramlabs.plugins:asset-pipeline-gradle:3.4.0'
+        classpath 'com.bertramlabs.plugins:sass-asset-pipeline:3.4.0'
+    }
+}
+
+plugins {
+    id 'pl.allegro.tech.build.axion-release' version '1.7.0'
+    id 'java'
+}
+
+apply plugin: 'com.bertramlabs.asset-pipeline'
+
+repositories {
+    mavenCentral()
+    maven { url "https://repo.grails.org/grails/core" }
+}
+
+sourceCompatibility = 1.11
+targetCompatibility = 1.11
+
+println "Java Home: ${System.getProperty('java.home')}"
+println "Java Version: ${System.getProperty('java.version')}"
+println "Gradle Version: ${gradle.gradleVersion}"
+
+import org.apache.tools.ant.filters.ReplaceTokens
+
+ext.pluginName = 'Job Metrics Summary View'
+ext.pluginDescription = 'Table list view of Jobs with execution stats'
+ext.sopsCopyright = "© 2025 PagerDuty"
+ext.sopsUrl = "http://docs.rundeck.com"
+ext.buildDateString = new Date().format("yyyy-MM-dd'T'HH:mm:ssX")
+ext.archivesBaseName = "ui-job-metrics"
+ext.pluginBaseFolder = "."
+
+scmVersion {
+    ignoreUncommittedChanges = true
+    tag {
+        prefix = ''
+        versionSeparator = ''
+        def origDeserialize=deserialize
+        deserialize = { config, position, tagName ->
+            def orig = origDeserialize(config, position, tagName)
+            if (orig.split('\\.').length < 3) {
+                orig += ".0"
+            }
+            orig
+        }
+    }
+}
+
+project.version = scmVersion.version
+ext.archiveFilename = ext.archivesBaseName + '-' + version
+
+assets {
+    verbose = true
+    minifyJs = false
+    minifyCss = false
+    enableSourceMaps = false
+    enableGzip = false
+    
+    configOptions = [
+        sass: [
+            resolveRelativeAssets: true,
+            compressed: true,
+            debugInfo: false,
+            lineNumbers: false
+        ]
+    ]
+
+    minifyOptions = [
+        languageMode: 'ES5',
+        targetLanguage: 'ES5',
+        optimizationLevel: 'SIMPLE',
+        angularPass: false
+    ]
+
+    includes = ['scss/*.scss', 'js/*.js']
+    excludes = [
+        '**/*.less',
+        '**/*.html',
+        'js/lib/*.js',
+        'js/lib/**/*.js'
+    ]
+
+    packagePlugin = false
+    developmentRuntime = true
+    jarTaskName = null
+
+    from "${project.projectDir}/src/main/rdplugin/assets"
+    compileDir = "${project.buildDir}/assets/resources"
+}
+
+defaultTasks 'build'
+
+task pluginZip(type: Jar) {
+    destinationDir = file("build/distributions")
+    baseName = project.ext.archivesBaseName
+    version = project.version
+    extension = 'zip'
+
+    from("${project.buildDir}/zip-contents") {
+        into(archiveFilename)
+        exclude "resources/manifest.properties"
+    }
+
+    manifest {
+        attributes 'Rundeck-Plugin-Name': pluginName.toString(),
+                   'Rundeck-Plugin-Description': pluginDescription.toString(),
+                   'Rundeck-Plugin-Archive': 'true',
+                   'Rundeck-Plugin-File-Version': project.version,
+                   'Rundeck-Plugin-Author': sopsCopyright,
+                   'Rundeck-Plugin-URL': sopsUrl,
+                   'Rundeck-Plugin-Date': buildDateString
+    }
+}
+
+build.dependsOn 'pluginZip'
+
+pluginZip.doFirst {
+    def assetsDir = "${project.buildDir}/assets/resources"
+    def assetsMap = new Properties()
+    def assetsManifest = file("${assetsDir}/manifest.properties")
+    assetsManifest.withInputStream(assetsMap.&load)
+    def tokens = assetsMap + [
+        version: project.version,
+        date: new Date().toString(),
+        author: sopsCopyright,
+        url: sopsUrl,
+        title: pluginName,
+        description: pluginDescription,
+        name: archivesBaseName.toString(),
+    ]
+    copy {
+        from(assetsDir) {
+            into 'resources'
+        }
+        from("${project.projectDir}/src/main/rdplugin") {
+            filter(ReplaceTokens, tokens: tokens)
+            exclude "assets"
+        }
+        into "${project.buildDir}/zip-contents"
+    }
+}
+
+project.pluginZip.dependsOn assetCompile
+project.pluginZip.mustRunAfter assetCompile
+
+dependencies {
+    implementation 'com.bertramlabs.plugins:sass-asset-pipeline:3.4.0'
+}
+
+artifacts {
+    add('default', pluginZip)
+}

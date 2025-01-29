@@ -1,0 +1,39 @@
+<div class="job-metrics-view">
+    <div class="summary-stats">
+        <div class="metric-card">
+            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalJobs')"></h4>
+            <span data-bind="text: summaryMetrics()?.totalJobs"></span>
+        </div>
+        <div class="metric-card">
+            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalExecutions')"></h4>
+            <span data-bind="text: summaryMetrics()?.totalExecutions"></span>
+        </div>
+        <div class="metric-card">
+            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgSuccessRate')"></h4>
+            <span data-bind="text: (summaryMetrics()?.avgSuccessRate || 0).toFixed(1) + '%'"></span>
+        </div>
+        <div class="metric-card">
+            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgDuration')"></h4>
+            <span data-bind="text: moment.duration(summaryMetrics()?.avgDuration || 0, 'seconds').humanize()"></span>
+        </div>
+    </div>
+
+    <table class="table table-striped">
+        <thead>
+            <tr>
+                <th data-bind="click: function() { sort('name') }">Job Name</th>
+                <th data-bind="click: function() { sort('executions') }">Executions</th>
+                <th data-bind="click: function() { sort('success') }">Success Rate</th>
+                <th data-bind="click: function() { sort('duration') }">Avg Duration</th>
+            </tr>
+        </thead>
+        <tbody data-bind="foreach: sortedJobs">
+            <tr>
+                <td data-bind="text: name"></td>
+                <td data-bind="text: executionCount"></td>
+                <td data-bind="text: formattedSuccessRate"></td>
+                <td data-bind="text: formattedAvgDuration"></td>
+            </tr>
+        </tbody>
+    </table>
+</div>
