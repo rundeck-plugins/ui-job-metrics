@@ -92,6 +92,7 @@ assets {
     developmentRuntime = true
     jarTaskName = null
 
+    assetsPath = "src/main/rdplugin/assets"
     from "${project.projectDir}/src/main/rdplugin/assets"
     compileDir = "${project.buildDir}/assets/resources"
 }

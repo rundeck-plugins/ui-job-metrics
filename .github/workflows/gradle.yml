@@ -3,10 +3,10 @@ name: Java CI
 on:
   push:
     branches:
-      - main
+    - main
   pull_request:
     branches:
-      - main
+    - main
 
 jobs:
   build:
@@ -15,17 +15,17 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          
+      
       - name: Get Fetch Tags
         if: ${{ !startsWith(github.ref, 'refs/tags') }}
         run: git fetch --tags --force
-        
+      
       - name: Set up JDK 11
         uses: actions/setup-java@v3
         with:
           java-version: '11'
           distribution: 'temurin'
-          
+      
       - name: Cache Gradle and Assets
         uses: actions/cache@v3
         with:
@@ -37,13 +37,18 @@ jobs:
           key: ${{ runner.os }}-gradle-${{ hashFiles('**/*.gradle', '**/gradle-wrapper.properties', 'src/main/rdplugin/assets/**') }}
           restore-keys: |
             ${{ runner.os }}-gradle-
-            
+      
+      - name: Verify Directory Structure
+        run: |
+          mkdir -p src/main/rdplugin/assets
+          ls -la src/main/rdplugin/assets
+      
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
-        
+      
       - name: Build Plugin
         run: |
-          ./gradlew clean assetCompile build --info
+          ./gradlew clean assetCompile build --info --stacktrace
         env:
           GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2"
           
