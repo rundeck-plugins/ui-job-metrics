@@ -1,35 +1,86 @@
-<div class="job-metrics-view">
-    <div class="summary-stats">
-        <div class="metric-card">
-            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalJobs')"></h4>
-            <span data-bind="text: summaryMetrics()?.totalJobs"></span>
-        </div>
-        <div class="metric-card">
-            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalExecutions')"></h4>
-            <span data-bind="text: summaryMetrics()?.totalExecutions"></span>
-        </div>
-        <div class="metric-card">
-            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgSuccessRate')"></h4>
-            <span data-bind="text: (summaryMetrics()?.avgSuccessRate || 0).toFixed(1) + '%'"></span>
-        </div>
-        <div class="metric-card">
-            <h4 data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgDuration')"></h4>
-            <span data-bind="text: moment.duration(summaryMetrics()?.avgDuration || 0, 'seconds').humanize()"></span>
+<div class="roi-dashboard">
+    <div class="dashboard-header clearfix">
+        <h4 class="pull-left">Job Metrics Summary</h4>
+    </div>
+
+    <div class="roi-summary-cards mb-4">
+        <div class="row">
+            <!-- Total Jobs Card -->
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <div class="card-content">
+                        <div class="metric-value">
+                            <span data-bind="text: jobmetrics.summaryMetrics()?.totalJobs"></span>
+                        </div>
+                        <div class="metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalJobs')"></div>
+                    </div>
+                    <div class="card-icon">
+                        <i class="glyphicon glyphicon-tasks"></i>
+                    </div>
+                </div>
+            </div>
+            <!-- Total Executions Card -->
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <div class="card-content">
+                        <div class="metric-value">
+                            <span data-bind="text: jobmetrics.summaryMetrics()?.totalExecutions"></span>
+                        </div>
+                        <div class="metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalExecutions')"></div>
+                    </div>
+                    <div class="card-icon">
+                        <i class="glyphicon glyphicon-play"></i>
+                    </div>
+                </div>
+            </div>
+            <!-- Success Rate Card -->
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <div class="card-content">
+                        <div class="metric-value">
+                            <span data-bind="text: (jobmetrics.summaryMetrics()?.avgSuccessRate || 0).toFixed(1) + '%'"></span>
+                        </div>
+                        <div class="metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgSuccessRate')"></div>
+                    </div>
+                    <div class="card-icon">
+                        <i class="glyphicon glyphicon-ok"></i>
+                    </div>
+                </div>
+            </div>
+            <!-- Average Duration Card -->
+            <div class="col-md-3">
+                <div class="summary-card">
+                    <div class="card-content">
+                        <div class="metric-value">
+                            <span data-bind="text: moment.duration(jobmetrics.summaryMetrics()?.avgDuration || 0, 'seconds').humanize()"></span>
+                        </div>
+                        <div class="metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgDuration')"></div>
+                    </div>
+                    <div class="card-icon">
+                        <i class="glyphicon glyphicon-time"></i>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
-    <table class="table table-striped">
+    <table class="table table-bordered table-hover table-compact">
         <thead>
             <tr>
-                <th data-bind="click: function() { sort('name') }">Job Name</th>
-                <th data-bind="click: function() { sort('executions') }">Executions</th>
-                <th data-bind="click: function() { sort('success') }">Success Rate</th>
-                <th data-bind="click: function() { sort('duration') }">Avg Duration</th>
+                <th data-bind="click: jobmetrics.sort.bind($data, 'name'), text: jobListSupport.i18Message('ui-jobmetrics', 'table.header.name')"></th>
+                <th data-bind="click: jobmetrics.sort.bind($data, 'executions'), text: jobListSupport.i18Message('ui-jobmetrics', 'table.header.executions')"></th>
+                <th data-bind="click: jobmetrics.sort.bind($data, 'success'), text: jobListSupport.i18Message('ui-jobmetrics', 'table.header.successRate')"></th>
+                <th data-bind="click: jobmetrics.sort.bind($data, 'duration'), text: jobListSupport.i18Message('ui-jobmetrics', 'table.header.duration')"></th>
             </tr>
         </thead>
-        <tbody data-bind="foreach: sortedJobs">
+        <tbody data-bind="foreach: jobmetrics.sortedJobs">
             <tr>
-                <td data-bind="text: name"></td>
+                <td>
+                    <a class="text-info"
+                       data-bind="text: name, 
+                                  attr: { href: '/project/' + window.location.pathname.split('/project/')[1].split('/')[0] + '/job/show/' + id }">
+                    </a>
+                </td>
                 <td data-bind="text: executionCount"></td>
                 <td data-bind="text: formattedSuccessRate"></td>
                 <td data-bind="text: formattedAvgDuration"></td>

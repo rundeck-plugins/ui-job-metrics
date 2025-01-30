@@ -21,162 +21,85 @@
     box-shadow: $shadow-hover;
   }
 }
+.roi-dashboard {
+  @include card-base;
+  margin: $spacing-lg;
 
-// Text Utilities
-.text-info {
-  color: $info;
-  font-weight: 500;
-}
-
-small.text-muted {
-  font-size: 0.85rem;
-  color: $gray-500;
-}
-
-//Execution Summary
-.execution-summary {
-    @include card-base;
-    
-    .summary-stats {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-      gap: $spacing-md;
+  .dashboard-header {
       margin-bottom: $spacing-lg;
-    }
-  
-    .stat-card {
+      padding-bottom: $spacing-md;
+      border-bottom: 0.0625rem solid $gray-400;
+  }
+}
+
+.roi-summary-cards {
+  margin: $spacing-lg 0;
+
+  .summary-card {
+      @include card-base;
+      @include hover-transform;
+      border: 0.0625rem solid $gray-200;
+      margin-bottom: $spacing-lg;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+  }
+
+  .card-content {
+      flex-grow: 1;
+  }
+
+  .metric-value {
+      font-size: $font-size-xl;
+      font-weight: 600;
+      color: $primary;
+      margin-bottom: $spacing-xs;
+
+      small {
+          font-size: $font-size-sm;
+          color: $gray-500;
+          margin-left: $spacing-xs;
+      }
+  }
+
+  .metric-label {
+      color: $gray-500;
+      font-size: $font-size-sm;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+  }
+
+  .card-icon {
+      margin-left: $spacing-lg;
+      color: $primary-light;
+      font-size: $font-size-xl;
+  }
+}
+
+// Table styles
+.table {
+  margin-top: $spacing-lg;
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+
+  th {
       background: $gray-100;
       padding: $spacing-md;
-      border-radius: $border-radius;
-      text-align: center;
-  
-      .stat-value {
-        font-size: 1.5rem;
-        font-weight: bold;
-        color: $primary;
-      }
-  
-      .stat-label {
-        color: $gray-600;
-        font-size: 0.9rem;
-      }
-    }
-  
-    .execution-trend-chart {
-      height: 300px;
-      margin: $spacing-lg 0;
-    }
-  
-    .execution-patterns {
-      display: flex;
-      gap: $spacing-lg;
-      margin-top: $spacing-lg;
-  
-      .pattern-chart {
-        flex: 1;
-        height: 200px;
-      }
-    }
-  }
-// Add these to your existing styles.scss
-
-// Job Metrics specific styles
-.job-metrics-view {
-  @include card-base;
-  
-  .metric-card {
-    @include card-base;
-    background: $gray-100;
-    text-align: center;
-    
-    h4 {
-      color: $gray-600;
-      font-size: $font-size-sm;
-      margin-bottom: $spacing-sm;
-      text-transform: uppercase;
-    }
-    
-    span {
-      font-size: $font-size-xl;
-      font-weight: bold;
-      color: $primary;
-    }
-  }
-
-  table {
-    margin-top: $spacing-lg;
-    
-    th {
+      font-weight: 500;
+      color: $gray-700;
       cursor: pointer;
       position: relative;
-      padding-right: $spacing-lg;
-      
+      border-bottom: 0.125rem solid $gray-200;
+
       &:hover {
-        background-color: $gray-100;
+          background: $gray-200;
       }
-      
-      &:after {
-        content: '↕';
-        position: absolute;
-        right: $spacing-sm;
-        opacity: 0.5;
-      }
-    }
-    
-    td {
-      vertical-align: middle;
-    }
   }
 
-  // Loading state
-  .loading-overlay {
-    background: rgba(255, 255, 255, 0.8);
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-  }
-}
-
-// Success/Failure indicators
-.success-rate {
-  &.high {
-    color: $success;
-  }
-  
-  &.medium {
-    color: $info;
-  }
-  
-  &.low {
-    color: $alert-info-text;
-  }
-}
-
-// Duration formatting
-.duration {
-  color: $gray-700;
-  font-family: monospace;
-}
-
-// Responsive adjustments
-@media (max-width: $breakpoint-md) {
-  .job-metrics-view {
-    .metric-card {
-      margin-bottom: $spacing-md;
-    }
-    
-    table {
-      font-size: $font-size-sm;
-      
-      th {
-        white-space: nowrap;
-      }
-    }
+  td {
+      padding: $spacing-md;
+      border-top: 1px solid $gray-200;
+      color: $gray-700;
   }
 }

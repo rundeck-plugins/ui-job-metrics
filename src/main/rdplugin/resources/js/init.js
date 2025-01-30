@@ -1,10 +1,11 @@
+//= require lib/support
+
 jQuery(function () {
-    if (typeof RDPLUGIN != "object") {
+  if (typeof RDPLUGIN != "object") {
       window.RDPLUGIN = {};
-    }
-    
-    // Initialize plugin
-    RDPLUGIN["ui-jobmetrics"] = {
+  }
+  
+  RDPLUGIN["ui-jobmetrics"] = {
       name: "ui-jobmetrics"
-    };
-  });
+  };
+});
