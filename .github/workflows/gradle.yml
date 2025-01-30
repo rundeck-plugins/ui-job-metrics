@@ -34,12 +34,21 @@ jobs:
           cp -r src/main/rdplugin/resources/js/* src/main/rdplugin/assets/js/
           ls -la src/main/rdplugin/assets/js
       
-      - name: Build Plugin
-        run: |
-          chmod +x gradlew
-          ./gradlew clean copyJavaScript assetCompile build --no-daemon --info
+      - name: Clean
+        run: ./gradlew clean --no-daemon
+        
+      - name: Copy JavaScript Files
+        run: ./gradlew copyAllJs --no-daemon
+        
+      - name: Process SCSS
+        run: ./gradlew assetCompile --no-daemon
         env:
-          GRADLE_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m"
+          GRADLE_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC"
+        
+      - name: Build Plugin
+        run: ./gradlew build --no-daemon
+        env:
+          GRADLE_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m -XX:+UseParallelGC"
       
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4

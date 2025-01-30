@@ -16,6 +16,14 @@ plugins {
 
 apply plugin: 'com.bertramlabs.asset-pipeline'
 
+gradle.taskGraph.whenReady { graph ->
+    graph.allTasks.each { task ->
+        if (task.name == 'assetCompile') {
+            task.jvmArgs = ['-Xmx2g', '-XX:MaxMetaspaceSize=512m']
+        }
+    }
+}
+
 allprojects {
     tasks.withType(JavaCompile) {
         options.fork = true
@@ -80,12 +88,11 @@ assets {
         ]
     ]
 
-    // Only process SCSS files
+    // Process files in smaller batches
     includes = ['scss/*.scss']
     excludes = [
         '**/*.less',
-        '**/*.html',
-        '**/*.js'  // Exclude JS files from asset pipeline
+        '**/*.html'
     ]
 
     packagePlugin = false
@@ -99,10 +106,27 @@ assets {
 
 defaultTasks 'build'
 
-task copyJavaScript(type: Copy) {
+task copyChartJs(type: Copy) {
     from "${project.projectDir}/src/main/rdplugin/assets/js"
     into "${project.buildDir}/assets/resources/js"
-    include "**/*.js"
+    include "chart.min.js"
+}
+
+task copyLibJs(type: Copy) {
+    from "${project.projectDir}/src/main/rdplugin/assets/js/lib"
+    into "${project.buildDir}/assets/resources/js/lib"
+    include "support.js"
+}
+
+task copyMainJs(type: Copy) {
+    from "${project.projectDir}/src/main/rdplugin/assets/js"
+    into "${project.buildDir}/assets/resources/js"
+    include "init.js"
+    include "jobmetrics.js"
+}
+
+task copyAllJs {
+    dependsOn copyChartJs, copyLibJs, copyMainJs
 }
 
 task pluginZip(type: Jar) {
