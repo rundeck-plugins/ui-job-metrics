@@ -179,7 +179,7 @@ pluginZip.doFirst {
     }
 }
 
-assetCompile.dependsOn copyJavaScript
+assetCompile.dependsOn copyAllJs
 project.pluginZip.dependsOn assetCompile
 project.pluginZip.mustRunAfter assetCompile
 
