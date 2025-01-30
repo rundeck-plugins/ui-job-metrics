@@ -46,11 +46,15 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
-      - name: Build Plugin
-        run: |
-          ./gradlew clean assetCompile build --info --stacktrace
+      - name: Asset Compile
+        run: ./gradlew clean assetCompile --info
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx1024m -XX:MaxPermSize=256m"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx1024m"
+  
+      - name: Build Plugin
+        run: ./gradlew build --info
+        env:
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx1024m"
           
       - name: Get Release Version
         id: get_version
