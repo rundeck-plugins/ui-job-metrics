@@ -3,10 +3,10 @@ name: Java CI
 on:
   push:
     branches:
-    - main
+      - main
   pull_request:
     branches:
-    - main
+      - main
 
 jobs:
   build:
@@ -40,38 +40,45 @@ jobs:
       
       - name: Verify Directory Structure
         run: |
-          mkdir -p src/main/rdplugin/assets
-          ls -la src/main/rdplugin/assets
+          mkdir -p src/main/rdplugin/assets/js/lib
+          mkdir -p src/main/rdplugin/assets/scss
+          cp -r src/main/rdplugin/resources/js/* src/main/rdplugin/assets/js/
+          ls -la src/main/rdplugin/assets/js
       
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       
+      - name: Setup Gradle
+        uses: gradle/gradle-build-action@v2
+        with:
+          gradle-version: 6.9.4
+      
       - name: Asset Compile
-        run: ./gradlew clean assetCompile --info
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx1024m"
-  
+        run: |
+          ./gradlew clean assetCompile --no-daemon --info \
+          -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+      
       - name: Build Plugin
-        run: ./gradlew build --info
-        env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx1024m"
-          
+        run: |
+          ./gradlew build --no-daemon --info \
+          -Dorg.gradle.jvmargs="-Xmx2048m -XX:MaxPermSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+      
       - name: Get Release Version
         id: get_version
         run: |
           VERSION=$(./gradlew currentVersion -q -Prelease.quiet | tail -n 1)
           echo "VERSION=${VERSION}" >> $GITHUB_OUTPUT
           echo "Detected version: ${VERSION}"
-          
+      
       - name: Show build contents
         run: |
           echo "Build directory contents:"
           find build/ -ls
-          
+      
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ui-roisummary-${{ steps.get_version.outputs.VERSION }}
+          name: ui-job-metrics-${{ steps.get_version.outputs.VERSION }}
           path: |
-            build/distributions/ui-roisummary-${{ steps.get_version.outputs.VERSION }}.zip
+            build/distributions/ui-job-metrics-${{ steps.get_version.outputs.VERSION }}.zip
           if-no-files-found: error
