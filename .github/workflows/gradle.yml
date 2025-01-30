@@ -34,23 +34,12 @@ jobs:
           cp -r src/main/rdplugin/resources/js/* src/main/rdplugin/assets/js/
           ls -la src/main/rdplugin/assets/js
       
-      - name: Grant execute permission for gradlew
-        run: chmod +x gradlew
-      
-      - name: Clean
-        run: ./gradlew clean --no-daemon
-      
-      - name: Asset Compile
-        run: |
-          export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
-          ./gradlew assetCompile --no-daemon --info \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
-      
       - name: Build Plugin
         run: |
-          export GRADLE_OPTS="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
-          ./gradlew build --no-daemon --info \
-            -Dorg.gradle.jvmargs="-Xmx4g -XX:MaxMetaspaceSize=512m -XX:+HeapDumpOnOutOfMemoryError"
+          chmod +x gradlew
+          ./gradlew clean copyJavaScript assetCompile build --no-daemon --info
+        env:
+          GRADLE_OPTS: "-Xmx2g -XX:MaxMetaspaceSize=512m"
       
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4

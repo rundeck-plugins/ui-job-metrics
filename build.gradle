@@ -80,19 +80,12 @@ assets {
         ]
     ]
 
-    minifyOptions = [
-        languageMode: 'ES5',
-        targetLanguage: 'ES5',
-        optimizationLevel: 'SIMPLE',
-        angularPass: false
-    ]
-
-    includes = ['scss/*.scss', 'js/*.js']
+    // Only process SCSS files
+    includes = ['scss/*.scss']
     excludes = [
         '**/*.less',
         '**/*.html',
-        'js/lib/*.js',
-        'js/lib/**/*.js'
+        '**/*.js'  // Exclude JS files from asset pipeline
     ]
 
     packagePlugin = false
@@ -105,6 +98,12 @@ assets {
 }
 
 defaultTasks 'build'
+
+task copyJavaScript(type: Copy) {
+    from "${project.projectDir}/src/main/rdplugin/assets/js"
+    into "${project.buildDir}/assets/resources/js"
+    include "**/*.js"
+}
 
 task pluginZip(type: Jar) {
     destinationDir = file("build/distributions")
@@ -156,6 +155,7 @@ pluginZip.doFirst {
     }
 }
 
+assetCompile.dependsOn copyJavaScript
 project.pluginZip.dependsOn assetCompile
 project.pluginZip.mustRunAfter assetCompile
 
