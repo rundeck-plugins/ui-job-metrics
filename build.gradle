@@ -1,3 +1,10 @@
+allprojects {
+    tasks.withType(JavaCompile) {
+        options.fork = true
+        options.forkOptions.jvmArgs += ['-Xmx1024m']
+    }
+}
+
 buildscript {
     repositories {
         mavenCentral()
@@ -91,6 +98,11 @@ assets {
     packagePlugin = false
     developmentRuntime = true
     jarTaskName = null
+
+    processOptions = [
+        maxThreads: 2,
+        maxProcesses: 2
+    ]
 
     assetsPath = "src/main/rdplugin/assets"
     from "${project.projectDir}/src/main/rdplugin/assets"

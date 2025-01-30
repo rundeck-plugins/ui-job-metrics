@@ -50,7 +50,7 @@ jobs:
         run: |
           ./gradlew clean assetCompile build --info --stacktrace
         env:
-          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2"
+          GRADLE_OPTS: "-Dorg.gradle.daemon=false -Dorg.gradle.workers.max=2 -Xmx1024m -XX:MaxPermSize=256m"
           
       - name: Get Release Version
         id: get_version
