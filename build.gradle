@@ -16,18 +16,6 @@ plugins {
 
 apply plugin: 'com.bertramlabs.asset-pipeline'
 
-tasks.withType(JavaExec) {
-    maxHeapSize = "2g"
-    jvmArgs = ['-XX:MaxMetaspaceSize=512m']
-}
-
-allprojects {
-    tasks.withType(JavaCompile) {
-        options.fork = true
-        options.forkOptions.jvmArgs += ['-Xmx1024m']
-    }
-}
-
 repositories {
     mavenCentral()
     maven { url "https://repo.grails.org/grails/core" }
@@ -85,46 +73,30 @@ assets {
         ]
     ]
 
-    // Process files in smaller batches
-    includes = ['scss/*.scss']
+    minifyOptions = [
+        languageMode: 'ES5',
+        targetLanguage: 'ES5',
+        optimizationLevel: 'SIMPLE',
+        angularPass: false
+    ]
+
+    includes = ['scss/*.scss', 'js/*.js']
     excludes = [
         '**/*.less',
-        '**/*.html'
+        '**/*.html',
+        'js/lib/*.js',
+        'js/lib/**/*.js'
     ]
 
     packagePlugin = false
     developmentRuntime = true
     jarTaskName = null
 
-    assetsPath = "src/main/rdplugin/assets"
     from "${project.projectDir}/src/main/rdplugin/assets"
     compileDir = "${project.buildDir}/assets/resources"
 }
 
 defaultTasks 'build'
-
-task copyChartJs(type: Copy) {
-    from "${project.projectDir}/src/main/rdplugin/assets/js"
-    into "${project.buildDir}/assets/resources/js"
-    include "chart.min.js"
-}
-
-task copyLibJs(type: Copy) {
-    from "${project.projectDir}/src/main/rdplugin/assets/js/lib"
-    into "${project.buildDir}/assets/resources/js/lib"
-    include "support.js"
-}
-
-task copyMainJs(type: Copy) {
-    from "${project.projectDir}/src/main/rdplugin/assets/js"
-    into "${project.buildDir}/assets/resources/js"
-    include "init.js"
-    include "jobmetrics.js"
-}
-
-task copyAllJs {
-    dependsOn copyChartJs, copyLibJs, copyMainJs
-}
 
 task pluginZip(type: Jar) {
     destinationDir = file("build/distributions")
@@ -176,7 +148,6 @@ pluginZip.doFirst {
     }
 }
 
-assetCompile.dependsOn copyAllJs
 project.pluginZip.dependsOn assetCompile
 project.pluginZip.mustRunAfter assetCompile
 
