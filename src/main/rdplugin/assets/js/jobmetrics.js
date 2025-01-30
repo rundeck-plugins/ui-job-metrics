@@ -2,7 +2,7 @@
 var jobListSupport = window.jobListSupport
 
 jQuery(function () {
-  var DEBUG = false
+  var DEBUG = true
   function log (...args) {
     if (DEBUG) console.log(...args)
   }
@@ -40,15 +40,70 @@ jQuery(function () {
     })
   }
 
-  function JobMetricsListView () {
+  function GraphOptions (data) {
+    var self = this
+
+    // Initialize timeWindow with saved value or default
+    const savedTimeWindow = localStorage.getItem(
+      'rundeck.plugin.ui-jobmetrics.timeWindow'
+    )
+    self.queryMax = ko.observable(
+      savedTimeWindow ? parseInt(savedTimeWindow) : 10
+    )
+
+    // Add validation and persistence for queryMax
+    self.queryMax.subscribe(function (newValue) {
+      // Convert to integer and validate
+      var days = parseInt(newValue)
+      if (isNaN(days) || days < 1) {
+        console.warn('Invalid days value. Must be a positive whole number.')
+        self.queryMax(10)
+        return
+      }
+      // Ensure it's a whole number
+      if (days !== parseFloat(newValue)) {
+        console.warn(
+          'Days value must be a whole number. Rounding to nearest integer.'
+        )
+        self.queryMax(days)
+        return
+      }
+      // Save to localStorage
+      localStorage.setItem(
+        'rundeck.plugin.ui-jobmetrics.timeWindow',
+        days.toString()
+      )
+    })
+  }
+
+  function JobMetricsListView (pluginName) {
     var self = this
     self.project = ko.observable(rundeckPage.project())
     self.jobs = ko.observableArray([])
     self.loading = ko.observable(false)
     self.jobmap = {}
+    self.successRateChart = null
+    self.timeHeatMapChart = null
+
+    // Initialize with GraphOptions
+    self.graphOptions = ko.observable(new GraphOptions())
+
+    self.graphOptions().queryMax.subscribe(function (newValue) {
+      // Only log in one place
+      if (DEBUG) {
+          console.log('Time window changed:', {
+              newValue: parseInt(newValue),
+              type: typeof parseInt(newValue)
+          })
+      }
+      self.graphOptions().queryMax(parseInt(newValue))
+      self.refreshExecData()
+  })
 
     // Time window for metrics
-    self.timeWindow = ko.observable(30)
+    self.timeWindow = ko.computed(function () {
+      return parseInt(self.graphOptions().queryMax())
+  })
 
     // Metrics tracking
     self.totalExecutions = ko.observable(0)
@@ -84,7 +139,6 @@ jQuery(function () {
       })
     })
 
-    // Summary metrics computed
     // Summary metrics computed
     self.summaryMetrics = ko.computed(function () {
       var jobs = self.sortedJobs()
@@ -122,6 +176,21 @@ jQuery(function () {
       self.loading(true)
       var jobs = self.jobs()
       var currentProject = self.project()
+      var completedRequests = 0
+      var timeWindow = parseInt(self.graphOptions().queryMax())
+
+      const beginDate = moment()
+        .startOf('day')
+        .subtract(timeWindow - 1, 'days')
+        .format('YYYY-MM-DD')
+      const endDate = moment().endOf('day').format('YYYY-MM-DD')
+
+      console.log('Date range for executions:', {
+        timeWindow: timeWindow,
+        begin: beginDate,
+        end: endDate,
+        daysRequested: moment(endDate).diff(moment(beginDate), 'days') + 1
+      })
 
       if (!currentProject) {
         console.error('Project name is undefined')
@@ -131,15 +200,19 @@ jQuery(function () {
 
       jobs.forEach(function (job) {
         var execUrl = `/api/40/job/${job.id}/executions`
-        //console.log('Fetching executions:', execUrl);
 
         jQuery.ajax({
           url: execUrl,
           method: 'GET',
           data: {
             max: 1000,
-            status: '', // blank to include all executions
-            includeJobRef: false
+            status: '',
+            includeJobRef: false,
+            begin: moment()
+              .startOf('day')
+              .subtract(self.graphOptions().queryMax() - 1, 'days')
+              .format('YYYY-MM-DD'),
+            end: moment().endOf('day').format('YYYY-MM-DD')
           },
           success: function (data) {
             if (data.executions && data.executions.length > 0) {
@@ -163,7 +236,12 @@ jQuery(function () {
             })
           },
           complete: function () {
-            self.loading(false)
+            completedRequests++
+            if (completedRequests === jobs.length) {
+              self.loading(false)
+              // Create charts after all data is loaded
+              self.createCharts()
+            }
           }
         })
       })
@@ -197,6 +275,166 @@ jQuery(function () {
         self.sortDirection('asc')
       }
     }
+    self.getSuccessRateOverTime = function () {
+      var timeData = {}
+      console.log('Getting success rate data for jobs:', self.jobs().length)
+      self.jobs().forEach(function (job) {
+        //console.log('Job executions:', job.executions?.length || 0)
+        job.executions.forEach(function (execution) {
+          var date = moment(
+            execution['date-started']?.date || execution.dateStarted
+          ).format('YYYY-MM-DD')
+          if (!timeData[date]) {
+            timeData[date] = { total: 0, success: 0 }
+          }
+          timeData[date].total++
+          if (execution.status === 'succeeded') {
+            timeData[date].success++
+          }
+        })
+      })
+
+      // Convert to arrays for Chart.js
+      var dates = Object.keys(timeData).sort()
+      var rates = dates.map(
+        date => (timeData[date].success / timeData[date].total) * 100
+      )
+      //console.log('Chart data:', { dates, rates })
+      return {
+        labels: dates,
+        data: rates
+      }
+    }
+
+    self.getTimeOfDayData = function () {
+      var hourData = Array(24).fill(0)
+      var totalExecutions = 0
+
+      self.jobs().forEach(function (job) {
+        job.executions.forEach(function (execution) {
+          var hour = moment(
+            execution['date-started']?.date || execution.dateStarted
+          ).hour()
+          hourData[hour]++
+          totalExecutions++
+        })
+      })
+
+      return {
+        labels: Array.from({ length: 24 }, (_, i) => i),
+        data: hourData
+      }
+    }
+
+    // Add function to create charts
+    self.createCharts = function () {
+      // Success Rate Over Time Chart
+      var successRateData = self.getSuccessRateOverTime()
+
+      // Destroy existing chart if it exists
+      if (self.successRateChart) {
+        self.successRateChart.destroy()
+      }
+
+      // Create new chart
+      self.successRateChart = new Chart(
+        document.getElementById('successRateChart'),
+        {
+          type: 'line',
+          data: {
+            labels: successRateData.labels,
+            datasets: [
+              {
+                label: 'Success Rate %',
+                data: successRateData.data,
+                borderColor: '#28a745',
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                fill: true,
+                tension: 0.4
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                max: 100,
+                title: {
+                  display: true,
+                  text: 'Success Rate (%)'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date'
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Job Success Rate Over Time'
+              }
+            }
+          }
+        }
+      )
+
+      // Time of Day Heat Map
+      var timeData = self.getTimeOfDayData()
+
+      // Destroy existing chart if it exists
+      if (self.timeHeatMapChart) {
+        self.timeHeatMapChart.destroy()
+      }
+
+      // Create new chart
+      self.timeHeatMapChart = new Chart(
+        document.getElementById('timeHeatMap'),
+        {
+          type: 'bar',
+          data: {
+            labels: timeData.labels.map(hour => `${hour}:00`),
+            datasets: [
+              {
+                label: 'Executions',
+                data: timeData.data,
+                backgroundColor: timeData.data.map(
+                  value =>
+                    `rgba(40, 167, 69, ${value / Math.max(...timeData.data)})`
+                )
+              }
+            ]
+          },
+          options: {
+            responsive: true,
+            scales: {
+              y: {
+                beginAtZero: true,
+                title: {
+                  display: true,
+                  text: 'Number of Executions'
+                }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Hour of Day'
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Job Executions by Hour Heatmap'
+              }
+            }
+          }
+        }
+      )
+    }
   }
 
   function JobMetrics (data) {
@@ -206,6 +444,8 @@ jQuery(function () {
     self.id = data.id
     self.name = ko.observable(data.name)
     self.group = ko.observable(data.group)
+
+    self.executions = []
 
     // Execution metrics
     self.executionCount = ko.observable(0)
@@ -217,6 +457,7 @@ jQuery(function () {
 
     // Process executions data
     self.processExecutions = function (executions) {
+      self.executions = executions
       var successful = 0
       var totalDuration = 0
 
@@ -263,7 +504,14 @@ jQuery(function () {
     if (pagePath === 'menu/jobs') {
       let pluginId = 'ui-jobmetrics'
       let pluginUrl = rundeckPage.pluginBaseUrl(pluginId)
-      let jobMetricsView = new JobMetricsListView()
+      let pluginName = RDPLUGIN[pluginId]
+      let jobMetricsView = new JobMetricsListView(pluginName)
+
+      console.log('Plugin initialization:', {
+        pluginId: pluginId,
+        RDPLUGIN: RDPLUGIN,
+        pluginConfig: RDPLUGIN[pluginId]?.config
+      })
 
       jobListSupport.init_plugin(pluginId, function () {
         jQuery.get(pluginUrl + '/html/table.html', function (templateHtml) {

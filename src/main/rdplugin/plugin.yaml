@@ -10,13 +10,6 @@ providers:
       plugin-type: ui
       title: 'Job Execution Metrics'
       description: 'Job Execution Summary Views on Job List and Job Activities pages'
-      properties:
-        - name: defaultTimeWindow
-          title: 'Default Time Window (days)'
-          type: Integer
-          required: false
-          default: '10'
-          description: 'Default time window for execution statistics'
       ui:
         - pages: '*'
           scripts:
