@@ -91,19 +91,19 @@ jQuery(function () {
     self.graphOptions().queryMax.subscribe(function (newValue) {
       // Only log in one place
       if (DEBUG) {
-          console.log('Time window changed:', {
-              newValue: parseInt(newValue),
-              type: typeof parseInt(newValue)
-          })
+        console.log('Time window changed:', {
+          newValue: parseInt(newValue),
+          type: typeof parseInt(newValue)
+        })
       }
       self.graphOptions().queryMax(parseInt(newValue))
       self.refreshExecData()
-  })
+    })
 
     // Time window for metrics
     self.timeWindow = ko.computed(function () {
       return parseInt(self.graphOptions().queryMax())
-  })
+    })
 
     // Metrics tracking
     self.totalExecutions = ko.observable(0)
@@ -138,6 +138,16 @@ jQuery(function () {
         }
       })
     })
+
+    // Get Header Icons in table
+    self.getSortIcon = function (field) {
+      if (self.sortField() !== field) {
+        return 'glyphicon glyphicon-sort'
+      }
+      return self.sortDirection() === 'asc'
+        ? 'glyphicon glyphicon-sort-by-attributes'
+        : 'glyphicon glyphicon-sort-by-attributes-alt'
+    }
 
     // Summary metrics computed
     self.summaryMetrics = ko.computed(function () {
