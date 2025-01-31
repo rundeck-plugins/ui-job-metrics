@@ -1,0 +1,88 @@
+:root {
+    /* Colors */
+    --primary: #2196F3;
+    --primary-light: rgba(33, 150, 243, 0.3);
+    --success: #28a745;
+    --info: #17a2b8;
+
+    /* Gray scale */
+    --gray-100: #f8f9fa;
+    --gray-200: #dee2e6;
+    --gray-300: #ddd;
+    --gray-400: #eee;
+    --gray-500: #6c757d;
+    --gray-600: #666;
+    --gray-700: #495057;
+    --gray-800: #555;
+
+    /* Alert colors */
+    --alert-info-bg: #e8f4f8;
+    --alert-info-border: #d1e8ef;
+    --alert-info-text: #4e6f7c;
+    --alert-info-link: #3c5561;
+    --alert-info-link-hover: #2a3c45;
+
+    /* Spacing */
+    --spacing-base: 1rem;
+    --spacing-xs: calc(var(--spacing-base) * 0.25);
+    --spacing-sm: calc(var(--spacing-base) * 0.5);
+    --spacing-md: calc(var(--spacing-base) * 0.75);
+    --spacing-lg: calc(var(--spacing-base) * 1.25);
+    --spacing-xl: calc(var(--spacing-base) * 1.5);
+    --spacing-xxl: calc(var(--spacing-base) * 2.5);
+
+    /* Typography */
+    --font-size-sm: 0.875rem;
+    --font-size-base: 1rem;
+    --font-size-lg: 1.25rem;
+    --font-size-xl: 1.5rem;
+
+    /* Border radius */
+    --border-radius: 0.25rem;
+
+    /* Shadows */
+    --shadow-sm: 0 0.0625rem 0.1875rem rgba(0, 0, 0, 0.1);
+    --shadow-hover: 0 0.125rem 0.5rem rgba(0, 0, 0, 0.1);
+
+
+    --card-bg: #ffffff;
+    --border-color: var(--gray-200);
+    --light: var(--gray-100);
+    --secondary: var(--gray-500);
+    --dark: var(--gray-700);
+
+    /* Spacing */
+    --spacing-1: var(--spacing-xs);
+    --spacing-2: var(--spacing-sm);
+    --spacing-3: var(--spacing-base);
+
+    /* Typography weights */
+    --font-weight-bold: 700;
+
+    /* Transitions */
+    --transition: all 0.3s ease;
+
+    /* Shadows */
+    --shadow-md: 0 0.25rem 0.5rem rgba(0, 0, 0, 0.15);
+}
+
+/* dark theme */
+[data-theme="dark"] {
+    --primary: #90caf9;
+    --primary-light: rgba(144, 202, 249, 0.3);
+    --card-bg: #242424;
+    --background-primary: #1a1a1a;
+    --border-color: #2d2d2d;
+    --text-primary: #fff;
+    --text-secondary: #a0a0a0;
+    --hover-bg: #2d2d2d;
+
+    --gray-100: #2d2d2d;
+    --gray-200: #333333;
+    --gray-300: #404040;
+    --gray-400: #484848;
+    --gray-500: #a0a0a0;
+    --gray-600: #bebebe;
+    --gray-700: #d1d1d1;
+    --gray-800: #eeeeee;
+}

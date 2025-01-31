@@ -4,8 +4,7 @@ buildscript {
         maven { url "https://repo.grails.org/grails/core" }
     }
     dependencies {
-        classpath 'com.bertramlabs.plugins:asset-pipeline-gradle:3.4.0'
-        classpath 'com.bertramlabs.plugins:sass-asset-pipeline:3.4.0'
+        classpath 'com.bertramlabs.plugins:asset-pipeline-gradle:2.11.6'
     }
 }
 
@@ -63,34 +62,15 @@ assets {
     minifyCss = false
     enableSourceMaps = false
     enableGzip = false
-    
-    configOptions = [
-        sass: [
-            resolveRelativeAssets: true,
-            compressed: true,
-            debugInfo: false,
-            lineNumbers: false
-        ]
-    ]
 
-    minifyOptions = [
-        languageMode: 'ES5',
-        targetLanguage: 'ES5',
-        optimizationLevel: 'SIMPLE',
-        angularPass: false
-    ]
-
-    includes = ['scss/*.scss', 'js/*.js']
+    includes = ['css/**/*.css', 'js/**/*.js']
     excludes = [
-        '**/*.less',
-        '**/*.html',
-        'js/lib/*.js',
-        'js/lib/**/*.js'
+            '**/*.less',
+            '**/*.html',
+            '**/*.scss',
+            'js/lib/*.js',
+            'js/lib/**/*.js'
     ]
-
-    packagePlugin = false
-    developmentRuntime = true
-    jarTaskName = null
 
     from "${project.projectDir}/src/main/rdplugin/assets"
     compileDir = "${project.buildDir}/assets/resources"
@@ -111,12 +91,12 @@ task pluginZip(type: Jar) {
 
     manifest {
         attributes 'Rundeck-Plugin-Name': pluginName.toString(),
-                   'Rundeck-Plugin-Description': pluginDescription.toString(),
-                   'Rundeck-Plugin-Archive': 'true',
-                   'Rundeck-Plugin-File-Version': project.version,
-                   'Rundeck-Plugin-Author': sopsCopyright,
-                   'Rundeck-Plugin-URL': sopsUrl,
-                   'Rundeck-Plugin-Date': buildDateString
+                'Rundeck-Plugin-Description': pluginDescription.toString(),
+                'Rundeck-Plugin-Archive': 'true',
+                'Rundeck-Plugin-File-Version': project.version,
+                'Rundeck-Plugin-Author': sopsCopyright,
+                'Rundeck-Plugin-URL': sopsUrl,
+                'Rundeck-Plugin-Date': buildDateString
     }
 }
 
@@ -128,13 +108,13 @@ pluginZip.doFirst {
     def assetsManifest = file("${assetsDir}/manifest.properties")
     assetsManifest.withInputStream(assetsMap.&load)
     def tokens = assetsMap + [
-        version: project.version,
-        date: new Date().toString(),
-        author: sopsCopyright,
-        url: sopsUrl,
-        title: pluginName,
-        description: pluginDescription,
-        name: archivesBaseName.toString(),
+            version: project.version,
+            date: new Date().toString(),
+            author: sopsCopyright,
+            url: sopsUrl,
+            title: pluginName,
+            description: pluginDescription,
+            name: archivesBaseName.toString(),
     ]
     copy {
         from(assetsDir) {
@@ -152,9 +132,9 @@ project.pluginZip.dependsOn assetCompile
 project.pluginZip.mustRunAfter assetCompile
 
 dependencies {
-    implementation 'com.bertramlabs.plugins:sass-asset-pipeline:3.4.0'
+    implementation 'com.bertramlabs.plugins:sass-asset-pipeline:2.11.6'
 }
 
 artifacts {
-    add('default', pluginZip)
+    archives pluginZip
 }
