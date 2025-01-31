@@ -62,7 +62,7 @@ jobs:
       - name: Upload Plugin Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ui-roisummary-${{ steps.get_version.outputs.VERSION }}
+          name: ui-job-metrics-${{ steps.get_version.outputs.VERSION }}
           path: |
-            build/distributions/ui-roisummary-${{ steps.get_version.outputs.VERSION }}.zip
+            build/distributions/ui-job-metrics-${{ steps.get_version.outputs.VERSION }}.zip
           if-no-files-found: error
