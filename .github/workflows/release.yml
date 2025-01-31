@@ -55,6 +55,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            build/distributions/ui-roisummary-${{ steps.get_version.outputs.VERSION }}.zip
+            build/distributions/ui-job-metrics-${{ steps.get_version.outputs.VERSION }}.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
