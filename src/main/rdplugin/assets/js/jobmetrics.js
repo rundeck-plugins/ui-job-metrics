@@ -1,5 +1,5 @@
 //= require lib/support
-var jobListSupport = window.jobListSupport
+var jobListSupport = new JobListSupport()
 
 jQuery(function () {
   var DEBUG = true
