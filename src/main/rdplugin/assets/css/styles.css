@@ -133,6 +133,36 @@
     color: var(--primary);
 }
 
+.job-metrics-section {
+    margin-top: var(--spacing-lg);
+}
+
+.job-metrics-summary .panel {
+    background: #fff;
+    border-radius: var(--border-radius);
+    box-shadow: var(--shadow-sm);
+}
+
+.job-metrics-summary .mt-3 {
+    margin-top: 1rem;
+}
+
+.job-metrics-summary canvas {
+    max-height: 300px;
+}
+
+.job-metrics-summary .text-success {
+    color: #28a745;
+}
+
+.job-metrics-summary .text-danger {
+    color: #dc3545;
+}
+
+.job-metrics-summary .text-info {
+    color: #17a2b8;
+}
+
 /* Media Queries */
 @media (max-width: 48em) {
     .jm-charts-container {

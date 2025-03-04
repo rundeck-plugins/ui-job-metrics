@@ -1,11 +1,13 @@
 //= require lib/support
 
 jQuery(function () {
-  if (typeof RDPLUGIN != "object") {
-      window.RDPLUGIN = {};
+  if (typeof RDPRO != "object") {
+      window.RDPRO = {};
   }
   
-  RDPLUGIN["ui-jobmetrics"] = {
+  RDPRO["ui-jobmetrics"] = {
       name: "ui-jobmetrics"
   };
+
+  console.log ("Intializing Job Metrics");
 });

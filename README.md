@@ -7,13 +7,18 @@ The Job Metrics plugin provides comprehensive visualization and analysis of your
 ![Job Metrics Dashboard](docs/images/jobmetrics.png)
 *Job Metrics Dashboard showing summary stats and charts*
 
+![Job Metrics Per Job](docs/images/job-stats.png)
+*Job Metrics for an individual job including success rate over time and snapshot of success/fail percentages*
+
 ## Versions
 
 Current Stable Version: 1.0.0
 
 | Plugin Version | Rundeck Version | Release Date |
 |----|----|----|
-| 1.0.0    | 5.0.0+    | 2024-01-29   |
+| 1.0.0    | 5.0.0+    | 2025-01-29   |
+| 1.0.1    | 5.0.0+    | 2025-02-03   |
+| 1.1.0    | 5.0.0+    | 2025-03-03   |
 
 ## Key Features
 
@@ -49,7 +54,7 @@ Current Stable Version: 1.0.0
 
 ## Requirements
 
-- Rundeck version 5.0.0 or higher
+- Rundeck version 5.0.0 or higher  (may not work with Open Source builds)
 - Modern web browser with:
   - JavaScript enabled
   - localStorage enabled
