@@ -1,61 +1,58 @@
 <div class="job-metrics-summary">
-    <div class="panel panel-default">
-        <div class="panel-heading">
-            <h3 class="panel-title">Job Metrics Summary</h3>
+    <h3 class="panel-title">Job Metrics Summary</h3>
+    <div class="form-group">
+        <label>Time Window</label>
+        <div class="input-group">
+            <input type="number" data-bind="value: graphOptions().queryMax"
+                class="form-control input-sm" min="1" step="1" />
+            <span class="input-group-addon">Days</span>
         </div>
-        <div class="panel-body">
-            <!-- Input controls -->
-            <div class="row">
-                <div class="col-sm-6">
-                    <div class="form-group">
-                        <label>Last How Many Days</label>
-                        <div class="input-group">
-                            <input type="number" data-bind="value: graphOptions().queryMax"
-                                class="form-control input-sm" min="1" step="1" />
-                            <span class="input-group-addon">Days</span>
-                        </div>
+    </div>
+    <!-- Replace the existing metrics row with this card-style layout -->
+    <div class="jm-summary-cards">
+        <div class="row">
+            <div class="col-md-3">
+                <div class="jm-summary-card">
+                    <div class="jm-card-content">
+                        <div class="jm-metric-value" data-bind="text: executionCount"></div>
+                        <div class="jm-metric-label">Total Executions</div>
                     </div>
                 </div>
             </div>
-
-            <!-- Loading indicator -->
-            <div data-bind="visible: loading" class="text-center">
-                <i class="glyphicon glyphicon-refresh spin"></i> Loading metrics data...
-            </div>
-
-            <!-- Metrics summary -->
-            <div data-bind="visible: !loading()">
-                <div class="row">
-                    <div class="col-sm-3">
-                        <strong>Total Executions:</strong>
-                        <span class="text-info" data-bind="text: executionCount"></span>
-                    </div>
-                    <div class="col-sm-3">
-                        <strong>Success Rate:</strong>
-                        <span class="text-info" data-bind="text: successRate().toFixed(1) + '%'"></span>
-                    </div>
-                    <div class="col-sm-3">
-                        <strong>Successful:</strong>
-                        <span class="text-success" data-bind="text: successCount"></span>
-                    </div>
-                    <div class="col-sm-3">
-                        <strong>Failed:</strong>
-                        <span class="text-danger" data-bind="text: failureCount"></span>
-                    </div>
-                </div>
-
-                <!-- Charts -->
-                <div class="row mt-3">
-                    <div class="col-sm-8">
-                        <h4>Success Rate Trend</h4>
-                        <canvas id="jobSuccessRateChart"></canvas>
-                    </div>
-                    <div class="col-sm-4">
-                        <h4>Execution Status</h4>
-                        <canvas id="jobStatusPieChart"></canvas>
+            <div class="col-md-3">
+                <div class="jm-summary-card">
+                    <div class="jm-card-content">
+                        <div class="jm-metric-value" data-bind="text: successRate().toFixed(1) + '%'"></div>
+                        <div class="jm-metric-label">Success Rate</div>
                     </div>
                 </div>
             </div>
+            <div class="col-md-3">
+                <div class="jm-summary-card">
+                    <div class="jm-card-content">
+                        <div class="jm-metric-value" data-bind="text: successCount"></div>
+                        <div class="jm-metric-label">Successful</div>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="jm-summary-card">
+                    <div class="jm-card-content">
+                        <div class="jm-metric-value" data-bind="text: failureCount"></div>
+                        <div class="jm-metric-label">Failed</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts container -->
+    <div class="jm-charts-container">
+        <div class="jm-chart-wrapper">
+            <canvas id="jobSuccessRateChart"></canvas>
+        </div>
+        <div class="jm-chart-wrapper">
+            <canvas id="jobStatusPieChart"></canvas>
         </div>
     </div>
 </div>

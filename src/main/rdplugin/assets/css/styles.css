@@ -1,9 +1,7 @@
-/* job-metrics-styles.css */
 @import 'variables.css';
 
 /* Dashboard Layout */
 .jm-dashboard {
-    background: var(--background-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-lg);
     margin: var(--spacing-lg);
@@ -30,15 +28,15 @@
     justify-content: space-between;
     align-items: center;
     transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    box-shadow: var(--card-default-box-shadow);
 }
 
 .jm-summary-card:hover {
     transform: translateY(-2px);
-    box-shadow: var(--card-default-box-shadow);
 }
 
 .jm-metric-value {
-    font-size: var(--text-2xl);
+    font-size: var(--text-lg);
     font-weight: 600;
     color: var(--primary-color);
     margin-bottom: var(--spacing-1);
@@ -52,7 +50,7 @@
 
 .jm-metric-label {
     color: var(--text-secondary-color);
-    font-size: var(--text-lg);
+    font-size: var(--text-md);
     letter-spacing: 0.5px;
 }
 
@@ -106,4 +104,63 @@
 
 .job-metrics-summary .text-info {
     color: var(--info-color);
+}
+
+/* Job Metrics Summary styling */
+.job-metrics-summary {
+    background: var(--background-color-lvl2);
+    padding: var(--spacing-lg);
+    border-radius: var(--border-radius);
+}
+
+.job-metrics-summary .panel-title {
+    margin-bottom: var(--spacing-lg);
+    color: var(--text-primary);
+}
+
+.job-metrics-summary .form-group {
+    width: 20%;
+}
+
+.job-metrics-summary .jm-summary-cards {
+    margin: var(--spacing-lg) 0;
+}
+
+.job-metrics-summary .jm-summary-card {
+    background: var(--card-default-background-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    border: 1px solid var(--card-default-border-color);
+    margin-bottom: var(--spacing-md);
+}
+
+.job-metrics-summary .jm-metric-value {
+    font-size: var(--text-lg);
+    font-weight: 600;
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-1);
+}
+
+.job-metrics-summary .jm-metric-label {
+    color: var(--text-secondary-color);
+    font-size: var(--text-md);
+}
+
+/* Charts Container */
+.job-metrics-summary .jm-charts-container {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-lg);
+}
+
+.job-metrics-summary .jm-chart-wrapper {
+    background: var(--card-default-background-color);
+    border-radius: var(--border-radius);
+    padding: var(--spacing-md);
+    border: 1px solid var(--card-default-border-color);
+}
+
+.job-metrics-summary canvas {
+    max-height: 300px;
 }
