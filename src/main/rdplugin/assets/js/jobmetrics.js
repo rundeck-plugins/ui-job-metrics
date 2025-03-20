@@ -469,55 +469,64 @@ jQuery(function () {
     self.successRateChart = null
     self.statusPieChart = null
 
-    self.loadMetricsData = function() {
+    self.loadMetricsData = function () {
       // Check if chart elements exist
-      if (!document.getElementById('jobSuccessRateChart') || 
-          !document.getElementById('jobStatusPieChart')) {
-          console.warn('Chart elements not ready, retrying in 100ms...')
-          setTimeout(() => self.loadMetricsData(), 100)
-          return
+      if (
+        !document.getElementById('jobSuccessRateChart') ||
+        !document.getElementById('jobStatusPieChart')
+      ) {
+        console.warn('Chart elements not ready, retrying in 100ms...')
+        setTimeout(() => self.loadMetricsData(), 100)
+        return
       }
-  
+
       self.loading(true)
       var jobDetail = loadJsonData('jobDetail')
       var jobId = jobDetail.id
-  
+
       var execsurl = `/api/40/job/${jobId}/executions`
-  
+
       jQuery.ajax({
-          url: execsurl,
-          method: 'GET',
-          data: {
-              max: 1000,
-              status: '',
-              includeJobRef: false,
-              begin: moment().startOf('day')
-                  .subtract(self.graphOptions().queryMax() - 1, 'days')
-                  .format('YYYY-MM-DD'),
-              end: moment().endOf('day').format('YYYY-MM-DD')
-          },
-          success: function(data) {
-              if (data.executions && data.executions.length > 0) {
-                  var cutoffDate = moment().startOf('day')
-                      .subtract(self.graphOptions().queryMax() - 1, 'days')
-                  var filteredExecutions = filterExecutionsByDate(data.executions, cutoffDate)
-                  
-                  self.processExecutions(filteredExecutions)
-                  
-                  // Double check elements exist before updating charts
-                  if (document.getElementById('jobSuccessRateChart') && 
-                      document.getElementById('jobStatusPieChart')) {
-                      self.updateCharts(filteredExecutions)
-                  }
-              }
-              self.loading(false)
-          },
-          error: function(xhr, status, error) {
-              console.error('Error loading executions:', error)
-              self.loading(false)
+        url: execsurl,
+        method: 'GET',
+        data: {
+          max: 1000,
+          status: '',
+          includeJobRef: false,
+          begin: moment()
+            .startOf('day')
+            .subtract(self.graphOptions().queryMax() - 1, 'days')
+            .format('YYYY-MM-DD'),
+          end: moment().endOf('day').format('YYYY-MM-DD')
+        },
+        success: function (data) {
+          if (data.executions && data.executions.length > 0) {
+            var cutoffDate = moment()
+              .startOf('day')
+              .subtract(self.graphOptions().queryMax() - 1, 'days')
+            var filteredExecutions = filterExecutionsByDate(
+              data.executions,
+              cutoffDate
+            )
+
+            self.processExecutions(filteredExecutions)
+
+            // Double check elements exist before updating charts
+            if (
+              document.getElementById('jobSuccessRateChart') &&
+              document.getElementById('jobStatusPieChart')
+            ) {
+              self.updateCharts(filteredExecutions)
+            }
           }
+          self.loading(false)
+        },
+        error: function (xhr, status, error) {
+          console.error('Error loading executions:', error)
+          self.loading(false)
+        }
       })
-  };
+    }
 
     self.processExecutions = function (executions) {
       var successful = 0
@@ -577,30 +586,51 @@ jQuery(function () {
             labels: dates,
             datasets: [
               {
-                label: 'Success Rate',
+                label: 'Success Rate %',
                 data: successRates,
-                borderColor: 'rgb(75, 192, 192)',
-                backgroundColor: 'rgba(75, 192, 192, 0.1)',
-                fill: true
+                borderColor: '#28a745', 
+                backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                fill: true,
+                tension: 0.4 
               }
             ]
           },
           options: {
             responsive: true,
-            plugins: {
-              title: {
-                display: true,
-                text: 'Success Rate Over Time'
-              }
-            },
             scales: {
               y: {
                 beginAtZero: true,
                 max: 100,
                 title: {
                   display: true,
-                  text: 'Success Rate (%)'
+                  text: 'Success Rate (%)',
+                  color:
+                    document.documentElement.getAttribute('data-theme') ===
+                    'dark'
+                      ? '#a0a0a0'
+                      : '#666666'
                 }
+              },
+              x: {
+                title: {
+                  display: true,
+                  text: 'Date',
+                  color:
+                    document.documentElement.getAttribute('data-theme') ===
+                    'dark'
+                      ? '#a0a0a0'
+                      : '#666666'
+                }
+              }
+            },
+            plugins: {
+              title: {
+                display: true,
+                text: 'Job Success Rate Over Time',
+                color:
+                  document.documentElement.getAttribute('data-theme') === 'dark'
+                    ? '#a0a0a0'
+                    : '#666666'
               }
             }
           }
@@ -751,28 +781,33 @@ jQuery(function () {
     if (pagePath === 'scheduledExecution/show') {
       let pluginId = 'ui-jobmetrics'
       let pluginUrl = rundeckPage.pluginBaseUrl(pluginId)
-  
+
       jobListSupport.setup_ko_loader(pluginId, pluginUrl, pluginId)
-  
+
       let jobMetricsView = new JobMetricsViewModel()
-  
+
       // Create container
-      let container = jQuery('<div class="col-sm-12 job-metrics-section"></div>')
+      let container = jQuery(
+        '<div class="col-sm-12 job-metrics-section"></div>'
+      )
       let statsTab = jQuery('#stats')
       if (statsTab.length) {
-          container.prependTo(statsTab)
+        container.prependTo(statsTab)
       }
-  
+
       jobListSupport.init_plugin(pluginId, function () {
-          jQuery.get(pluginUrl + '/html/job-metrics.html', function (templateHtml) {
-              container.html(templateHtml)
-              ko.applyBindings(jobMetricsView, container[0])
-              // Only load metrics after template is loaded and bound
-              setTimeout(() => {
-                  jobMetricsView.loadMetricsData()
-              }, 100)
-          })
+        jQuery.get(
+          pluginUrl + '/html/job-metrics.html',
+          function (templateHtml) {
+            container.html(templateHtml)
+            ko.applyBindings(jobMetricsView, container[0])
+            // Only load metrics after template is loaded and bound
+            setTimeout(() => {
+              jobMetricsView.loadMetricsData()
+            }, 100)
+          }
+        )
       })
-  }
+    }
   })
 })

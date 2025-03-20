@@ -3,7 +3,7 @@
 
 /* Dashboard Layout */
 .jm-dashboard {
-    background: #fff;
+    background: var(--background-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-lg);
     margin: var(--spacing-lg);
@@ -12,7 +12,7 @@
 .jm-dashboard .dashboard-header {
     margin-bottom: var(--spacing-lg);
     padding-bottom: var(--spacing-md);
-    border-bottom: 0.0625rem solid var(--gray-400);
+    border-bottom: 1px solid var(--border-color);
 }
 
 /* Summary Cards */
@@ -21,10 +21,10 @@
 }
 
 .jm-summary-card {
-    background: #fff;
+    background: var(--card-default-background-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-lg);
-    border: 0.0625rem solid var(--gray-200);
+    border: 1px solid var(--card-default-border-color);
     margin-bottom: var(--spacing-lg);
     display: flex;
     justify-content: space-between;
@@ -33,38 +33,27 @@
 }
 
 .jm-summary-card:hover {
-    transform: translateY(-0.125rem);
-    box-shadow: var(--shadow-hover);
-}
-
-.jm-card-content {
-    flex-grow: 1;
+    transform: translateY(-2px);
+    box-shadow: var(--card-default-box-shadow);
 }
 
 .jm-metric-value {
-    font-size: var(--font-size-xl);
+    font-size: var(--text-2xl);
     font-weight: 600;
-    color: var(--primary);
-    margin-bottom: var(--spacing-xs);
+    color: var(--primary-color);
+    margin-bottom: var(--spacing-1);
 }
 
 .jm-metric-value small {
-    font-size: var(--font-size-sm);
-    color: var(--gray-500);
-    margin-left: var(--spacing-xs);
+    font-size: var(--text-sm);
+    color: var(--text-secondary-color);
+    margin-left: var(--spacing-1);
 }
 
 .jm-metric-label {
-    color: var(--gray-500);
-    font-size: var(--font-size-lg);
-    text-transform: uppercase;
+    color: var(--text-secondary-color);
+    font-size: var(--text-lg);
     letter-spacing: 0.5px;
-}
-
-.jm-card-icon {
-    margin-left: var(--spacing-lg);
-    color: var(--primary-light);
-    font-size: var(--font-size-xl);
 }
 
 /* Charts Container */
@@ -77,10 +66,10 @@
 
 .jm-chart-wrapper {
     width: 100%;
-    background: white;
+    background: var(--card-default-background-color);
     padding: var(--spacing-md);
     border-radius: var(--border-radius);
-    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+    box-shadow: var(--card-default-box-shadow);
 }
 
 /* Table Styles */
@@ -92,80 +81,29 @@
 }
 
 .jm-dashboard .table th {
-    background: var(--gray-100);
+    background: var(--background-color-lvl2);
     padding: var(--spacing-md);
     font-weight: 500;
-    color: var(--gray-700);
-    border-bottom: 0.125rem solid var(--gray-200);
-}
-
-.jm-dashboard .table th.sortable {
-    cursor: pointer;
-    position: relative;
-    padding-right: var(--spacing-lg);
-}
-
-.jm-dashboard .table th:hover {
-    background: var(--gray-200);
+    font-size: var(--text-md);
+    color: var(--font-color);
+    border-bottom: 1px solid var(--border-color);
 }
 
 .jm-dashboard .table td {
     padding: var(--spacing-md);
-    border-top: 1px solid var(--gray-200);
-    color: var(--gray-700);
+    border-top: 1px solid var(--border-color);
+    color: var(--font-color);
 }
 
-/* Sorting Icons */
-.jm-dashboard .sort-icon {
-    position: absolute;
-    right: var(--spacing-xs);
-    top: 50%;
-    transform: translateY(-50%);
-}
-
-.jm-dashboard .sort-icon.glyphicon-sort {
-    opacity: 0.3;
-}
-
-.jm-dashboard .sort-icon.glyphicon-sort-by-attributes,
-.jm-dashboard .sort-icon.glyphicon-sort-by-attributes-alt {
-    opacity: 1;
-    color: var(--primary);
-}
-
-.job-metrics-section {
-    margin-top: var(--spacing-lg);
-}
-
-.job-metrics-summary .panel {
-    background: #fff;
-    border-radius: var(--border-radius);
-    box-shadow: var(--shadow-sm);
-}
-
-.job-metrics-summary .mt-3 {
-    margin-top: 1rem;
-}
-
-.job-metrics-summary canvas {
-    max-height: 300px;
-}
-
+/* Status Colors */
 .job-metrics-summary .text-success {
-    color: #28a745;
+    color: var(--success-color);
 }
 
 .job-metrics-summary .text-danger {
-    color: #dc3545;
+    color: var(--danger-color);
 }
 
 .job-metrics-summary .text-info {
-    color: #17a2b8;
-}
-
-/* Media Queries */
-@media (max-width: 48em) {
-    .jm-charts-container {
-        grid-template-columns: 1fr;
-    }
+    color: var(--info-color);
 }
