@@ -76,6 +76,19 @@ jQuery(function () {
     })
   }
 
+  function getChartThemeColors () {
+    console.log("Theme Value is: " + document.documentElement.getAttribute('data-color-theme'))
+    const isDarkMode =
+      document.documentElement.getAttribute('data-color-theme') === 'dark'
+    return {
+      textColor: isDarkMode ? '#ffffff' : '#666666',
+      gridColor: isDarkMode ? 'rgba(160, 160, 160, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+      borderColor: isDarkMode
+        ? 'rgba(160, 160, 160, 0.2)'
+        : 'rgba(0, 0, 0, 0.2)'
+    }
+  }
+
   function JobMetricsListView (pluginName) {
     var self = this
     self.project = ko.observable(rundeckPage.project())
@@ -338,15 +351,15 @@ jQuery(function () {
 
     // Add function to create charts
     self.createCharts = function () {
+      
+      const themeColors = getChartThemeColors()
+
       // Success Rate Over Time Chart
       var successRateData = self.getSuccessRateOverTime()
-
-      // Destroy existing chart if it exists
       if (self.successRateChart) {
         self.successRateChart.destroy()
       }
 
-      // Create new chart
       self.successRateChart = new Chart(
         document.getElementById('successRateChart'),
         {
@@ -370,37 +383,56 @@ jQuery(function () {
               y: {
                 beginAtZero: true,
                 max: 100,
+                grid: {
+                  color: themeColors.gridColor,
+                  borderColor: themeColors.borderColor
+                },
+                ticks: {
+                  color: themeColors.textColor
+                },
                 title: {
                   display: true,
-                  text: 'Success Rate (%)'
+                  text: 'Success Rate (%)',
+                  color: themeColors.textColor
                 }
               },
               x: {
+                grid: {
+                  color: themeColors.gridColor,
+                  borderColor: themeColors.borderColor
+                },
+                ticks: {
+                  color: themeColors.textColor
+                },
                 title: {
                   display: true,
-                  text: 'Date'
+                  text: 'Date',
+                  color: themeColors.textColor
                 }
               }
             },
             plugins: {
               title: {
                 display: true,
-                text: 'Job Success Rate Over Time'
+                text: 'Job Success Rate Over Time',
+                color: themeColors.textColor
+              },
+              legend: {
+                labels: {
+                  color: themeColors.textColor
+                }
               }
             }
           }
         }
       )
 
-      // Time of Day Heat Map
+      // Time Heat Map
       var timeData = self.getTimeOfDayData()
-
-      // Destroy existing chart if it exists
       if (self.timeHeatMapChart) {
         self.timeHeatMapChart.destroy()
       }
 
-      // Create new chart
       self.timeHeatMapChart = new Chart(
         document.getElementById('timeHeatMap'),
         {
@@ -423,22 +455,44 @@ jQuery(function () {
             scales: {
               y: {
                 beginAtZero: true,
+                grid: {
+                  color: themeColors.gridColor,
+                  borderColor: themeColors.borderColor
+                },
+                ticks: {
+                  color: themeColors.textColor
+                },
                 title: {
                   display: true,
-                  text: 'Number of Executions'
+                  text: 'Number of Executions',
+                  color: themeColors.textColor
                 }
               },
               x: {
+                grid: {
+                  color: themeColors.gridColor,
+                  borderColor: themeColors.borderColor
+                },
+                ticks: {
+                  color: themeColors.textColor
+                },
                 title: {
                   display: true,
-                  text: 'Hour of Day'
+                  text: 'Hour of Day',
+                  color: themeColors.textColor
                 }
               }
             },
             plugins: {
               title: {
                 display: true,
-                text: 'Job Executions by Hour Heatmap'
+                text: 'Job Executions by Hour Heatmap',
+                color: themeColors.textColor
+              },
+              legend: {
+                labels: {
+                  color: themeColors.textColor
+                }
               }
             }
           }
@@ -553,6 +607,9 @@ jQuery(function () {
     }
 
     self.updateCharts = function (executions) {
+     
+      const themeColors = getChartThemeColors()
+
       // Prepare data for success rate over time
       var timeData = {}
       executions.forEach(function (execution) {
@@ -588,10 +645,10 @@ jQuery(function () {
               {
                 label: 'Success Rate %',
                 data: successRates,
-                borderColor: '#28a745', 
+                borderColor: '#28a745',
                 backgroundColor: 'rgba(40, 167, 69, 0.1)',
                 fill: true,
-                tension: 0.4 
+                tension: 0.4
               }
             ]
           },
@@ -601,25 +658,31 @@ jQuery(function () {
               y: {
                 beginAtZero: true,
                 max: 100,
+                grid: {
+                  color: themeColors.gridColor,
+                  borderColor: themeColors.borderColor
+                },
+                ticks: {
+                  color: themeColors.textColor
+                },
                 title: {
                   display: true,
                   text: 'Success Rate (%)',
-                  color:
-                    document.documentElement.getAttribute('data-theme') ===
-                    'dark'
-                      ? '#a0a0a0'
-                      : '#666666'
+                  color: themeColors.textColor
                 }
               },
               x: {
+                grid: {
+                  color: themeColors.gridColor,
+                  borderColor: themeColors.borderColor
+                },
+                ticks: {
+                  color: themeColors.textColor
+                },
                 title: {
                   display: true,
                   text: 'Date',
-                  color:
-                    document.documentElement.getAttribute('data-theme') ===
-                    'dark'
-                      ? '#a0a0a0'
-                      : '#666666'
+                  color: themeColors.textColor
                 }
               }
             },
@@ -627,10 +690,12 @@ jQuery(function () {
               title: {
                 display: true,
                 text: 'Job Success Rate Over Time',
-                color:
-                  document.documentElement.getAttribute('data-theme') === 'dark'
-                    ? '#a0a0a0'
-                    : '#666666'
+                color: themeColors.textColor
+              },
+              legend: {
+                labels: {
+                  color: themeColors.textColor
+                }
               }
             }
           }
@@ -663,7 +728,13 @@ jQuery(function () {
             plugins: {
               title: {
                 display: true,
-                text: 'Execution Status Distribution'
+                text: 'Execution Status Distribution',
+                color: themeColors.textColor
+              },
+              legend: {
+                labels: {
+                  color: themeColors.textColor
+                }
               }
             }
           }
@@ -745,7 +816,7 @@ jQuery(function () {
       let pluginId = 'ui-jobmetrics'
       let pluginUrl = rundeckPage.pluginBaseUrl(pluginId)
       let pluginName = RDPRO[pluginId]
-      let jobMetricsView = new JobMetricsListView(pluginName)
+      jobMetricsView = new JobMetricsListView(pluginName)
 
       console.log('Plugin initialization:', {
         pluginId: pluginId,
@@ -784,7 +855,7 @@ jQuery(function () {
 
       jobListSupport.setup_ko_loader(pluginId, pluginUrl, pluginId)
 
-      let jobMetricsView = new JobMetricsViewModel()
+      jobMetricsView = new JobMetricsViewModel()
 
       // Create container
       let container = jQuery(
@@ -809,5 +880,29 @@ jQuery(function () {
         )
       })
     }
+
+    if (jobMetricsView) {
+      const observer = new MutationObserver(mutations => {
+          mutations.forEach(mutation => {
+              if (mutation.attributeName === 'data-color-theme') {
+                  console.log("Theme Change Seen")
+                  console.log("New theme value:", document.documentElement.getAttribute('data-color-theme'))
+                  // Refresh charts when theme changes
+                  if (pagePath === 'menu/jobs' && jobMetricsView.refreshExecData) {
+                      console.log("Refreshing menu/jobs charts")
+                      jobMetricsView.refreshExecData()
+                  } else if (pagePath === 'scheduledExecution/show' && jobMetricsView.loadMetricsData) {
+                      console.log("Refreshing scheduledExecution charts")
+                      jobMetricsView.loadMetricsData()
+                  }
+              }
+          })
+      })
+
+      observer.observe(document.documentElement, {
+          attributes: true,
+          attributeFilter: ['data-color-theme']
+      })
+  }
   })
 })
