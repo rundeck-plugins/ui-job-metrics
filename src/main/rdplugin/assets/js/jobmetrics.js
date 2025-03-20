@@ -77,7 +77,6 @@ jQuery(function () {
   }
 
   function getChartThemeColors () {
-    console.log("Theme Value is: " + document.documentElement.getAttribute('data-color-theme'))
     const isDarkMode =
       document.documentElement.getAttribute('data-color-theme') === 'dark'
     return {
@@ -300,7 +299,7 @@ jQuery(function () {
     }
     self.getSuccessRateOverTime = function () {
       var timeData = {}
-      console.log('Getting success rate data for jobs:', self.jobs().length)
+      //console.log('Getting success rate data for jobs:', self.jobs().length)
       self.jobs().forEach(function (job) {
         //console.log('Job executions:', job.executions?.length || 0)
         job.executions.forEach(function (execution) {
@@ -818,11 +817,11 @@ jQuery(function () {
       let pluginName = RDPRO[pluginId]
       jobMetricsView = new JobMetricsListView(pluginName)
 
-      console.log('Plugin initialization:', {
-        pluginId: pluginId,
-        RDPRO: RDPRO,
-        pluginConfig: RDPRO[pluginId]?.config
-      })
+      // console.log('Plugin initialization:', {
+      //   pluginId: pluginId,
+      //   RDPRO: RDPRO,
+      //   pluginConfig: RDPRO[pluginId]?.config
+      // })
 
       jobListSupport.init_plugin(pluginId, function () {
         jQuery.get(pluginUrl + '/html/table.html', function (templateHtml) {
@@ -885,14 +884,14 @@ jQuery(function () {
       const observer = new MutationObserver(mutations => {
           mutations.forEach(mutation => {
               if (mutation.attributeName === 'data-color-theme') {
-                  console.log("Theme Change Seen")
-                  console.log("New theme value:", document.documentElement.getAttribute('data-color-theme'))
+                  // console.log("Theme Change Seen")
+                  //console.log("New theme value:", document.documentElement.getAttribute('data-color-theme'))
                   // Refresh charts when theme changes
                   if (pagePath === 'menu/jobs' && jobMetricsView.refreshExecData) {
-                      console.log("Refreshing menu/jobs charts")
+                      //console.log("Refreshing menu/jobs charts")
                       jobMetricsView.refreshExecData()
                   } else if (pagePath === 'scheduledExecution/show' && jobMetricsView.loadMetricsData) {
-                      console.log("Refreshing scheduledExecution charts")
+                     //console.log("Refreshing scheduledExecution charts")
                       jobMetricsView.loadMetricsData()
                   }
               }
