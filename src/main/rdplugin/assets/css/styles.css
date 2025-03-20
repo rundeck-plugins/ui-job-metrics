@@ -54,6 +54,10 @@
     letter-spacing: 0.5px;
 }
 
+.jm-card-icon {
+    color: var(--text-secondary-color);
+}
+
 /* Charts Container */
 .jm-charts-container {
     margin-top: var(--spacing-lg);
@@ -129,7 +133,7 @@
 .job-metrics-summary .jm-summary-card {
     background: var(--card-default-background-color);
     border-radius: var(--border-radius);
-    padding: var(--spacing-md);
+    padding: var(--spacing-lg);
     border: 1px solid var(--card-default-border-color);
     margin-bottom: var(--spacing-md);
 }
@@ -157,7 +161,7 @@
 .job-metrics-summary .jm-chart-wrapper {
     background: var(--card-default-background-color);
     border-radius: var(--border-radius);
-    padding: var(--spacing-md);
+    padding: var(--spacing-lg);
     border: 1px solid var(--card-default-border-color);
 }
 

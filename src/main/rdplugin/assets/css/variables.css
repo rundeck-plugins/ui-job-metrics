@@ -52,13 +52,14 @@
 }
 
 /* Dark theme overrides */
-[data-theme="dark"] {
+[data-color-theme="dark"] {
     /* Core colors */
     --card-bg: var(--card-default-background-color);
     --background-primary: var(--background-color);
     --border-color: var(--border-color);
     --text-primary: var(--font-color);
     --text-secondary: var(--text-secondary-color);
+    --primary-color: var(--grey-100);
 
     /* Status colors in dark mode */
     --success: var(--green-300);
