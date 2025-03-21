@@ -159,7 +159,6 @@
     background: var(--card-default-background-color);
     border-radius: var(--border-radius);
     padding: var(--spacing-lg);
-    border: 1px solid var(--card-default-border-color);
 }
 
 .job-metrics-summary canvas {
