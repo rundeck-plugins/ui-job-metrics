@@ -8,6 +8,4 @@ jQuery(function () {
   RDPRO["ui-jobmetrics"] = {
       name: "ui-jobmetrics"
   };
-
-  console.log ("Intializing Job Metrics");
 });
