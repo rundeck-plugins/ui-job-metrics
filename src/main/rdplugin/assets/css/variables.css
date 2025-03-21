@@ -31,7 +31,6 @@
 
     /* Core UI colors - use Rundeck theme variables */
     --card-bg: var(--card-default-background-color);
-    --border-color: var(--border-color);
     --text-primary: var(--font-color);
     --text-secondary: var(--text-secondary-color);
     
@@ -56,7 +55,6 @@
     /* Core colors */
     --card-bg: var(--card-default-background-color);
     --background-primary: var(--background-color);
-    --border-color: var(--border-color);
     --text-primary: var(--font-color);
     --text-secondary: var(--text-secondary-color);
     --primary-color: var(--grey-100);
