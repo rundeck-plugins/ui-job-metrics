@@ -1,5 +1,3 @@
-//= require lib/support
-
 jQuery(function () {
   if (typeof RDPRO != "object") {
       window.RDPRO = {};

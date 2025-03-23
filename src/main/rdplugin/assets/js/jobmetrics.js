@@ -1,5 +1,7 @@
-//= require lib/support
+//= require ./lib/support
 function initJobMetrics() {
+  console.log ("Check if Job Metrics should be initialized");
+
   const currentUi = !!document.querySelector('.ui-type-current')
   if(currentUi) {
     console.log ("Initializing Job Metrics");

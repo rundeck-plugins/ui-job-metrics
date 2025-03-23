@@ -13,6 +13,12 @@
     border-bottom: 1px solid var(--border-color);
 }
 
+/* todo - revisit this solution */
+.tab-pane .jm-dashboard {
+    padding-top: 0;
+    margin-top: 0;
+}
+
 /* Summary Cards */
 .jm-summary-cards {
     margin: var(--spacing-lg) 0;
