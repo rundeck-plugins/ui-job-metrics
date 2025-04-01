@@ -1,10 +1,10 @@
 //= require ./lib/support
-function initJobMetrics() {
-  console.log ("Check if Job Metrics should be initialized");
+function initJobMetrics () {
+  console.log('Check if Job Metrics should be initialized')
 
   const currentUi = !!document.querySelector('.ui-type-current')
-  if(currentUi) {
-    console.log ("Initializing Job Metrics");
+  if (currentUi) {
+    console.log('Initializing Job Metrics')
     var jobListSupport = new JobListSupport()
 
     jQuery(function () {
@@ -24,7 +24,8 @@ function initJobMetrics() {
       function filterExecutionsByDate (executions, cutoffDate) {
         var executionsByDate = {}
         executions.forEach(function (execution) {
-          var dateStarted = execution['date-started']?.date || execution.dateStarted
+          var dateStarted =
+            execution['date-started']?.date || execution.dateStarted
 
           if (typeof dateStarted === 'string') {
             var executionDate = moment(dateStarted).format('YYYY-MM-DD')
@@ -36,12 +37,13 @@ function initJobMetrics() {
         })
 
         return executions.filter(function (execution) {
-          var dateStarted = execution['date-started']?.date || execution.dateStarted
+          var dateStarted =
+            execution['date-started']?.date || execution.dateStarted
           var executionDate = moment(dateStarted).startOf('day')
           var cutoffMoment = moment(cutoffDate).startOf('day')
           return (
-              executionDate.isAfter(cutoffMoment) ||
-              executionDate.isSame(cutoffMoment, 'day')
+            executionDate.isAfter(cutoffMoment) ||
+            executionDate.isSame(cutoffMoment, 'day')
           )
         })
       }
@@ -51,10 +53,10 @@ function initJobMetrics() {
 
         // Initialize timeWindow with saved value or default
         const savedTimeWindow = localStorage.getItem(
-            'rundeck.plugin.ui-jobmetrics.timeWindow'
+          'rundeck.plugin.ui-jobmetrics.timeWindow'
         )
         self.queryMax = ko.observable(
-            savedTimeWindow ? parseInt(savedTimeWindow) : 10
+          savedTimeWindow ? parseInt(savedTimeWindow) : 10
         )
 
         // Add validation and persistence for queryMax
@@ -69,28 +71,30 @@ function initJobMetrics() {
           // Ensure it's a whole number
           if (days !== parseFloat(newValue)) {
             console.warn(
-                'Days value must be a whole number. Rounding to nearest integer.'
+              'Days value must be a whole number. Rounding to nearest integer.'
             )
             self.queryMax(days)
             return
           }
           // Save to localStorage
           localStorage.setItem(
-              'rundeck.plugin.ui-jobmetrics.timeWindow',
-              days.toString()
+            'rundeck.plugin.ui-jobmetrics.timeWindow',
+            days.toString()
           )
         })
       }
 
       function getChartThemeColors () {
         const isDarkMode =
-            document.documentElement.getAttribute('data-color-theme') === 'dark'
+          document.documentElement.getAttribute('data-color-theme') === 'dark'
         return {
           textColor: isDarkMode ? '#ffffff' : '#666666',
-          gridColor: isDarkMode ? 'rgba(160, 160, 160, 0.1)' : 'rgba(0, 0, 0, 0.1)',
+          gridColor: isDarkMode
+            ? 'rgba(160, 160, 160, 0.1)'
+            : 'rgba(0, 0, 0, 0.1)',
           borderColor: isDarkMode
-              ? 'rgba(160, 160, 160, 0.2)'
-              : 'rgba(0, 0, 0, 0.2)'
+            ? 'rgba(160, 160, 160, 0.2)'
+            : 'rgba(0, 0, 0, 0.2)'
         }
       }
 
@@ -134,28 +138,40 @@ function initJobMetrics() {
 
         // Computed for sorted jobs
         self.sortedJobs = ko.computed(function () {
-          return self.jobs().sort(function (a, b) {
-            var aValue, bValue
-            switch (self.sortField()) {
-              case 'name':
-                return self.sortDirection() === 'asc'
-                    ? a.name().localeCompare(b.name())
-                    : b.name().localeCompare(a.name())
-              case 'executions':
-                return self.sortDirection() === 'asc'
-                    ? a.executionCount() - b.executionCount()
-                    : b.executionCount() - a.executionCount()
-              case 'success':
-                return self.sortDirection() === 'asc'
-                    ? a.successRate() - b.successRate()
-                    : b.successRate() - a.successRate()
-              case 'duration':
-                return self.sortDirection() === 'asc'
-                    ? a.avgDuration() - b.avgDuration()
-                    : b.avgDuration() - a.avgDuration()
-            }
-          })
-        })
+          var jobs = self.jobs();
+          var sortField = self.sortField();
+          var sortDirection = self.sortDirection();
+      
+          return jobs.sort(function (a, b) {
+              var aValue, bValue;
+              switch (sortField) {
+                  case 'name':
+                      aValue = a.name().toLowerCase();
+                      bValue = b.name().toLowerCase();
+                      break;
+                  case 'executions':
+                      aValue = a.executionCount();
+                      bValue = b.executionCount();
+                      break;
+                  case 'success': // Correctly handle 'success' field
+                      aValue = a.successRate();
+                      bValue = b.successRate();
+                      break;
+                  case 'duration':
+                      aValue = a.avgDuration();
+                      bValue = b.avgDuration();
+                      break;
+                  default:
+                      return 0; // Don't sort if the field is not recognized
+              }
+      
+              if (sortDirection === 'asc') {
+                  return aValue < bValue ? -1 : (aValue > bValue ? 1 : 0); // Correct comparison
+              } else {
+                  return aValue > bValue ? -1 : (aValue < bValue ? 1 : 0); // Correct comparison
+              }
+          });
+      });
 
         // Get Header Icons in table
         self.getSortIcon = function (field) {
@@ -163,8 +179,8 @@ function initJobMetrics() {
             return 'glyphicon glyphicon-sort'
           }
           return self.sortDirection() === 'asc'
-              ? 'glyphicon glyphicon-sort-by-attributes'
-              : 'glyphicon glyphicon-sort-by-attributes-alt'
+            ? 'glyphicon glyphicon-sort-by-attributes'
+            : 'glyphicon glyphicon-sort-by-attributes-alt'
         }
 
         // Summary metrics computed
@@ -178,23 +194,23 @@ function initJobMetrics() {
           return {
             totalJobs: jobs.length,
             totalExecutions: jobs.reduce(
-                (sum, job) => sum + job.executionCount(),
-                0
+              (sum, job) => sum + job.executionCount(),
+              0
             ),
             avgSuccessRate:
-                jobsWithExecutions.length > 0
-                    ? jobsWithExecutions.reduce(
+              jobsWithExecutions.length > 0
+                ? jobsWithExecutions.reduce(
                     (sum, job) => sum + job.successRate(),
                     0
-                ) / jobsWithExecutions.length
-                    : 0,
+                  ) / jobsWithExecutions.length
+                : 0,
             avgDuration:
-                jobsWithExecutions.length > 0
-                    ? jobsWithExecutions.reduce(
+              jobsWithExecutions.length > 0
+                ? jobsWithExecutions.reduce(
                     (sum, job) => sum + job.avgDuration(),
                     0
-                ) / jobsWithExecutions.length
-                    : 0
+                  ) / jobsWithExecutions.length
+                : 0
           }
         })
 
@@ -208,9 +224,9 @@ function initJobMetrics() {
           var timeWindow = parseInt(self.graphOptions().queryMax())
 
           const beginDate = moment()
-              .startOf('day')
-              .subtract(timeWindow - 1, 'days')
-              .format('YYYY-MM-DD')
+            .startOf('day')
+            .subtract(timeWindow - 1, 'days')
+            .format('YYYY-MM-DD')
           const endDate = moment().endOf('day').format('YYYY-MM-DD')
 
           console.log('Date range for executions:', {
@@ -237,19 +253,19 @@ function initJobMetrics() {
                 status: '',
                 includeJobRef: false,
                 begin: moment()
-                    .startOf('day')
-                    .subtract(self.graphOptions().queryMax() - 1, 'days')
-                    .format('YYYY-MM-DD'),
+                  .startOf('day')
+                  .subtract(self.graphOptions().queryMax() - 1, 'days')
+                  .format('YYYY-MM-DD'),
                 end: moment().endOf('day').format('YYYY-MM-DD')
               },
               success: function (data) {
                 if (data.executions && data.executions.length > 0) {
                   var cutoffDate = moment()
-                      .startOf('day')
-                      .subtract(self.timeWindow() - 1, 'days')
+                    .startOf('day')
+                    .subtract(self.timeWindow() - 1, 'days')
                   var filteredExecutions = filterExecutionsByDate(
-                      data.executions,
-                      cutoffDate
+                    data.executions,
+                    cutoffDate
                   )
 
                   job.processExecutions(filteredExecutions)
@@ -297,12 +313,14 @@ function initJobMetrics() {
         // Sort handling
         self.sort = function (field) {
           if (self.sortField() === field) {
-            self.sortDirection(self.sortDirection() === 'asc' ? 'desc' : 'asc')
+              self.sortDirection(self.sortDirection() === 'asc' ? 'desc' : 'asc');
           } else {
-            self.sortField(field)
-            self.sortDirection('asc')
+              self.sortField(field);
+              self.sortDirection('asc');
           }
-        }
+  
+          self.jobs.valueHasMutated(); // This line triggers the table update
+      };
         self.getSuccessRateOverTime = function () {
           var timeData = {}
           //console.log('Getting success rate data for jobs:', self.jobs().length)
@@ -310,7 +328,7 @@ function initJobMetrics() {
             //console.log('Job executions:', job.executions?.length || 0)
             job.executions.forEach(function (execution) {
               var date = moment(
-                  execution['date-started']?.date || execution.dateStarted
+                execution['date-started']?.date || execution.dateStarted
               ).format('YYYY-MM-DD')
               if (!timeData[date]) {
                 timeData[date] = { total: 0, success: 0 }
@@ -325,9 +343,20 @@ function initJobMetrics() {
           // Convert to arrays for Chart.js
           var dates = Object.keys(timeData).sort()
           var rates = dates.map(
-              date => (timeData[date].success / timeData[date].total) * 100
+            date => (timeData[date].success / timeData[date].total) * 100
           )
-          //console.log('Chart data:', { dates, rates })
+          // Check if there's only one date
+          if (dates.length === 1) {
+            const firstDate = dates[0]
+            const prevDate = moment(firstDate)
+              .subtract(1, 'day')
+              .format('YYYY-MM-DD')
+
+            dates.unshift(prevDate)
+            rates.unshift(null) // Add null for the rate
+          }
+
+          console.log('Chart data:', { dates, rates })
           return {
             labels: dates,
             data: rates
@@ -341,7 +370,7 @@ function initJobMetrics() {
           self.jobs().forEach(function (job) {
             job.executions.forEach(function (execution) {
               var hour = moment(
-                  execution['date-started']?.date || execution.dateStarted
+                execution['date-started']?.date || execution.dateStarted
               ).hour()
               hourData[hour]++
               totalExecutions++
@@ -356,7 +385,6 @@ function initJobMetrics() {
 
         // Add function to create charts
         self.createCharts = function () {
-
           const themeColors = getChartThemeColors()
 
           // Success Rate Over Time Chart
@@ -366,70 +394,70 @@ function initJobMetrics() {
           }
 
           self.successRateChart = new Chart(
-              document.getElementById('successRateChart'),
-              {
-                type: 'line',
-                data: {
-                  labels: successRateData.labels,
-                  datasets: [
-                    {
-                      label: 'Success Rate %',
-                      data: successRateData.data,
-                      borderColor: '#28a745',
-                      backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                      fill: true,
-                      tension: 0.4
-                    }
-                  ]
-                },
-                options: {
-                  responsive: true,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      max: 100,
-                      grid: {
-                        color: themeColors.gridColor,
-                        borderColor: themeColors.borderColor
-                      },
-                      ticks: {
-                        color: themeColors.textColor
-                      },
-                      title: {
-                        display: true,
-                        text: 'Success Rate (%)',
-                        color: themeColors.textColor
-                      }
+            document.getElementById('successRateChart'),
+            {
+              type: 'bar',
+              data: {
+                labels: successRateData.labels,
+                datasets: [
+                  {
+                    label: 'Success Rate %',
+                    data: successRateData.data,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                      color: themeColors.gridColor,
+                      borderColor: themeColors.borderColor
                     },
-                    x: {
-                      grid: {
-                        color: themeColors.gridColor,
-                        borderColor: themeColors.borderColor
-                      },
-                      ticks: {
-                        color: themeColors.textColor
-                      },
-                      title: {
-                        display: true,
-                        text: 'Date',
-                        color: themeColors.textColor
-                      }
-                    }
-                  },
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Job Success Rate Over Time',
+                    ticks: {
                       color: themeColors.textColor
                     },
-                    legend: {
-                      labels: {
-                        color: themeColors.textColor
-                      }
+                    title: {
+                      display: true,
+                      text: 'Success Rate (%)',
+                      color: themeColors.textColor
+                    }
+                  },
+                  x: {
+                    grid: {
+                      color: themeColors.gridColor,
+                      borderColor: themeColors.borderColor
+                    },
+                    ticks: {
+                      color: themeColors.textColor
+                    },
+                    title: {
+                      display: true,
+                      text: 'Date',
+                      color: themeColors.textColor
+                    }
+                  }
+                },
+                plugins: {
+                  title: {
+                    display: true,
+                    text: 'Job Success Rate Over Time',
+                    color: themeColors.textColor
+                  },
+                  legend: {
+                    labels: {
+                      color: themeColors.textColor
                     }
                   }
                 }
               }
+            }
           )
 
           // Time Heat Map
@@ -439,69 +467,71 @@ function initJobMetrics() {
           }
 
           self.timeHeatMapChart = new Chart(
-              document.getElementById('timeHeatMap'),
-              {
-                type: 'bar',
-                data: {
-                  labels: timeData.labels.map(hour => `${hour}:00`),
-                  datasets: [
-                    {
-                      label: 'Executions',
-                      data: timeData.data,
-                      backgroundColor: timeData.data.map(
-                          value =>
-                              `rgba(40, 167, 69, ${value / Math.max(...timeData.data)})`
-                      )
-                    }
-                  ]
-                },
-                options: {
-                  responsive: true,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      grid: {
-                        color: themeColors.gridColor,
-                        borderColor: themeColors.borderColor
-                      },
-                      ticks: {
-                        color: themeColors.textColor
-                      },
-                      title: {
-                        display: true,
-                        text: 'Number of Executions',
-                        color: themeColors.textColor
-                      }
+            document.getElementById('timeHeatMap'),
+            {
+              type: 'bar',
+              data: {
+                labels: timeData.labels.map(hour => `${hour}:00`),
+                datasets: [
+                  {
+                    label: 'Executions',
+                    data: timeData.data,
+                    backgroundColor: timeData.data.map(
+                      value =>
+                        `rgba(40, 167, 69, ${
+                          value / Math.max(...timeData.data)
+                        })`
+                    )
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    grid: {
+                      color: themeColors.gridColor,
+                      borderColor: themeColors.borderColor
                     },
-                    x: {
-                      grid: {
-                        color: themeColors.gridColor,
-                        borderColor: themeColors.borderColor
-                      },
-                      ticks: {
-                        color: themeColors.textColor
-                      },
-                      title: {
-                        display: true,
-                        text: 'Hour of Day',
-                        color: themeColors.textColor
-                      }
-                    }
-                  },
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Job Executions by Hour Heatmap',
+                    ticks: {
                       color: themeColors.textColor
                     },
-                    legend: {
-                      labels: {
-                        color: themeColors.textColor
-                      }
+                    title: {
+                      display: true,
+                      text: 'Number of Executions',
+                      color: themeColors.textColor
+                    }
+                  },
+                  x: {
+                    grid: {
+                      color: themeColors.gridColor,
+                      borderColor: themeColors.borderColor
+                    },
+                    ticks: {
+                      color: themeColors.textColor
+                    },
+                    title: {
+                      display: true,
+                      text: 'Hour of Day',
+                      color: themeColors.textColor
+                    }
+                  }
+                },
+                plugins: {
+                  title: {
+                    display: true,
+                    text: 'Job Executions by Hour Heatmap',
+                    color: themeColors.textColor
+                  },
+                  legend: {
+                    labels: {
+                      color: themeColors.textColor
                     }
                   }
                 }
               }
+            }
           )
         }
       }
@@ -519,9 +549,9 @@ function initJobMetrics() {
 
         // Time window options
         self.graphOptions = ko.observable(
-            new GraphOptions({
-              queryMax: 10
-            })
+          new GraphOptions({
+            queryMax: 10
+          })
         )
 
         // Chart instances
@@ -531,8 +561,8 @@ function initJobMetrics() {
         self.loadMetricsData = function () {
           // Check if chart elements exist
           if (
-              !document.getElementById('jobSuccessRateChart') ||
-              !document.getElementById('jobStatusPieChart')
+            !document.getElementById('jobSuccessRateChart') ||
+            !document.getElementById('jobStatusPieChart')
           ) {
             console.warn('Chart elements not ready, retrying in 100ms...')
             setTimeout(() => self.loadMetricsData(), 100)
@@ -553,27 +583,27 @@ function initJobMetrics() {
               status: '',
               includeJobRef: false,
               begin: moment()
-                  .startOf('day')
-                  .subtract(self.graphOptions().queryMax() - 1, 'days')
-                  .format('YYYY-MM-DD'),
+                .startOf('day')
+                .subtract(self.graphOptions().queryMax() - 1, 'days')
+                .format('YYYY-MM-DD'),
               end: moment().endOf('day').format('YYYY-MM-DD')
             },
             success: function (data) {
               if (data.executions && data.executions.length > 0) {
                 var cutoffDate = moment()
-                    .startOf('day')
-                    .subtract(self.graphOptions().queryMax() - 1, 'days')
+                  .startOf('day')
+                  .subtract(self.graphOptions().queryMax() - 1, 'days')
                 var filteredExecutions = filterExecutionsByDate(
-                    data.executions,
-                    cutoffDate
+                  data.executions,
+                  cutoffDate
                 )
 
                 self.processExecutions(filteredExecutions)
 
                 // Double check elements exist before updating charts
                 if (
-                    document.getElementById('jobSuccessRateChart') &&
-                    document.getElementById('jobStatusPieChart')
+                  document.getElementById('jobSuccessRateChart') &&
+                  document.getElementById('jobStatusPieChart')
                 ) {
                   self.updateCharts(filteredExecutions)
                 }
@@ -604,22 +634,21 @@ function initJobMetrics() {
           self.successCount(successful)
           self.failureCount(executions.length - successful)
           self.successRate(
-              executions.length > 0 ? (successful / executions.length) * 100 : 0
+            executions.length > 0 ? (successful / executions.length) * 100 : 0
           )
           self.avgDuration(
-              executions.length > 0 ? totalDuration / executions.length : 0
+            executions.length > 0 ? totalDuration / executions.length : 0
           )
         }
 
         self.updateCharts = function (executions) {
-
           const themeColors = getChartThemeColors()
 
           // Prepare data for success rate over time
           var timeData = {}
           executions.forEach(function (execution) {
             var date = moment(
-                execution['date-started']?.date || execution.dateStarted
+              execution['date-started']?.date || execution.dateStarted
             ).format('YYYY-MM-DD')
             if (!timeData[date]) {
               timeData[date] = { total: 0, success: 0 }
@@ -632,8 +661,18 @@ function initJobMetrics() {
 
           var dates = Object.keys(timeData).sort()
           var successRates = dates.map(
-              date => (timeData[date].success / timeData[date].total) * 100
+            date => (timeData[date].success / timeData[date].total) * 100
           )
+
+          if (dates.length === 1) {
+            const firstDate = dates[0]
+            const prevDate = moment(firstDate)
+              .subtract(1, 'day')
+              .format('YYYY-MM-DD')
+
+            dates.unshift(prevDate)
+            successRates.unshift(null) // Add null for the success rate
+          }
 
           // Update success rate chart
           if (self.successRateChart) {
@@ -641,70 +680,70 @@ function initJobMetrics() {
           }
 
           self.successRateChart = new Chart(
-              document.getElementById('jobSuccessRateChart'),
-              {
-                type: 'line',
-                data: {
-                  labels: dates,
-                  datasets: [
-                    {
-                      label: 'Success Rate %',
-                      data: successRates,
-                      borderColor: '#28a745',
-                      backgroundColor: 'rgba(40, 167, 69, 0.1)',
-                      fill: true,
-                      tension: 0.4
-                    }
-                  ]
-                },
-                options: {
-                  responsive: true,
-                  scales: {
-                    y: {
-                      beginAtZero: true,
-                      max: 100,
-                      grid: {
-                        color: themeColors.gridColor,
-                        borderColor: themeColors.borderColor
-                      },
-                      ticks: {
-                        color: themeColors.textColor
-                      },
-                      title: {
-                        display: true,
-                        text: 'Success Rate (%)',
-                        color: themeColors.textColor
-                      }
+            document.getElementById('jobSuccessRateChart'),
+            {
+              type: 'bar',
+              data: {
+                labels: dates,
+                datasets: [
+                  {
+                    label: 'Success Rate %',
+                    data: successRates,
+                    borderColor: '#28a745',
+                    backgroundColor: 'rgba(40, 167, 69, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                scales: {
+                  y: {
+                    beginAtZero: true,
+                    max: 100,
+                    grid: {
+                      color: themeColors.gridColor,
+                      borderColor: themeColors.borderColor
                     },
-                    x: {
-                      grid: {
-                        color: themeColors.gridColor,
-                        borderColor: themeColors.borderColor
-                      },
-                      ticks: {
-                        color: themeColors.textColor
-                      },
-                      title: {
-                        display: true,
-                        text: 'Date',
-                        color: themeColors.textColor
-                      }
-                    }
-                  },
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Job Success Rate Over Time',
+                    ticks: {
                       color: themeColors.textColor
                     },
-                    legend: {
-                      labels: {
-                        color: themeColors.textColor
-                      }
+                    title: {
+                      display: true,
+                      text: 'Success Rate (%)',
+                      color: themeColors.textColor
+                    }
+                  },
+                  x: {
+                    grid: {
+                      color: themeColors.gridColor,
+                      borderColor: themeColors.borderColor
+                    },
+                    ticks: {
+                      color: themeColors.textColor
+                    },
+                    title: {
+                      display: true,
+                      text: 'Date',
+                      color: themeColors.textColor
+                    }
+                  }
+                },
+                plugins: {
+                  title: {
+                    display: true,
+                    text: 'Job Success Rate Over Time',
+                    color: themeColors.textColor
+                  },
+                  legend: {
+                    labels: {
+                      color: themeColors.textColor
                     }
                   }
                 }
               }
+            }
           )
 
           // Update pie chart
@@ -713,37 +752,37 @@ function initJobMetrics() {
           }
 
           self.statusPieChart = new Chart(
-              document.getElementById('jobStatusPieChart'),
-              {
-                type: 'pie',
-                data: {
-                  labels: ['Successful', 'Failed'],
-                  datasets: [
-                    {
-                      data: [self.successCount(), self.failureCount()],
-                      backgroundColor: [
-                        'rgba(75, 192, 192, 0.8)',
-                        'rgba(255, 99, 132, 0.8)'
-                      ]
-                    }
-                  ]
-                },
-                options: {
-                  responsive: true,
-                  plugins: {
-                    title: {
-                      display: true,
-                      text: 'Execution Status Distribution',
+            document.getElementById('jobStatusPieChart'),
+            {
+              type: 'pie',
+              data: {
+                labels: ['Successful', 'Failed'],
+                datasets: [
+                  {
+                    data: [self.successCount(), self.failureCount()],
+                    backgroundColor: [
+                      'rgba(75, 192, 192, 0.8)',
+                      'rgba(255, 99, 132, 0.8)'
+                    ]
+                  }
+                ]
+              },
+              options: {
+                responsive: true,
+                plugins: {
+                  title: {
+                    display: true,
+                    text: 'Execution Status Distribution',
+                    color: themeColors.textColor
+                  },
+                  legend: {
+                    labels: {
                       color: themeColors.textColor
-                    },
-                    legend: {
-                      labels: {
-                        color: themeColors.textColor
-                      }
                     }
                   }
                 }
               }
+            }
           )
         }
 
@@ -791,10 +830,10 @@ function initJobMetrics() {
           self.successCount(successful)
           self.failureCount(executions.length - successful)
           self.successRate(
-              executions.length > 0 ? (successful / executions.length) * 100 : 0
+            executions.length > 0 ? (successful / executions.length) * 100 : 0
           )
           self.avgDuration(
-              executions.length > 0 ? totalDuration / executions.length : 0
+            executions.length > 0 ? totalDuration / executions.length : 0
           )
           self.totalDuration(totalDuration)
         }
@@ -832,23 +871,23 @@ function initJobMetrics() {
           jobListSupport.init_plugin(pluginId, function () {
             jQuery.get(pluginUrl + '/html/table.html', function (templateHtml) {
               let tablink = jobListSupport.initPage(
-                  '#indexMain',
-                  'Jobs',
-                  'jobmetricsview',
-                  'jobmetricstab',
-                  'Job Metrics',
-                  templateHtml,
-                  function (elem) {
-                    jobMetricsView.loadJobs()
-                    ko.applyBindings(
-                        {
-                          jobmetrics: jobMetricsView,
-                          jobListSupport: jobListSupport
-                        },
-                        elem
-                    )
-                    jobMetricsView.refreshExecData()
-                  }
+                '#indexMain',
+                'Jobs',
+                'jobmetricsview',
+                'jobmetricstab',
+                'Job Metrics',
+                templateHtml,
+                function (elem) {
+                  jobMetricsView.loadJobs()
+                  ko.applyBindings(
+                    {
+                      jobmetrics: jobMetricsView,
+                      jobListSupport: jobListSupport
+                    },
+                    elem
+                  )
+                  jobMetricsView.refreshExecData()
+                }
               )
             })
           })
@@ -864,7 +903,7 @@ function initJobMetrics() {
 
           // Create container
           let container = jQuery(
-              '<div class="col-sm-12 job-metrics-section"></div>'
+            '<div class="col-sm-12 job-metrics-section"></div>'
           )
           let statsTab = jQuery('#stats')
           if (statsTab.length) {
@@ -873,15 +912,15 @@ function initJobMetrics() {
 
           jobListSupport.init_plugin(pluginId, function () {
             jQuery.get(
-                pluginUrl + '/html/job-metrics.html',
-                function (templateHtml) {
-                  container.html(templateHtml)
-                  ko.applyBindings(jobMetricsView, container[0])
-                  // Only load metrics after template is loaded and bound
-                  setTimeout(() => {
-                    jobMetricsView.loadMetricsData()
-                  }, 100)
-                }
+              pluginUrl + '/html/job-metrics.html',
+              function (templateHtml) {
+                container.html(templateHtml)
+                ko.applyBindings(jobMetricsView, container[0])
+                // Only load metrics after template is loaded and bound
+                setTimeout(() => {
+                  jobMetricsView.loadMetricsData()
+                }, 100)
+              }
             )
           })
         }
@@ -893,10 +932,16 @@ function initJobMetrics() {
                 // console.log("Theme Change Seen")
                 //console.log("New theme value:", document.documentElement.getAttribute('data-color-theme'))
                 // Refresh charts when theme changes
-                if (pagePath === 'menu/jobs' && jobMetricsView.refreshExecData) {
+                if (
+                  pagePath === 'menu/jobs' &&
+                  jobMetricsView.refreshExecData
+                ) {
                   //console.log("Refreshing menu/jobs charts")
                   jobMetricsView.refreshExecData()
-                } else if (pagePath === 'scheduledExecution/show' && jobMetricsView.loadMetricsData) {
+                } else if (
+                  pagePath === 'scheduledExecution/show' &&
+                  jobMetricsView.loadMetricsData
+                ) {
                   //console.log("Refreshing scheduledExecution charts")
                   jobMetricsView.loadMetricsData()
                 }
