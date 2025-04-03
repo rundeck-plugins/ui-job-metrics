@@ -4,7 +4,7 @@
 
 The Job Metrics plugin provides comprehensive visualization and analysis of your Rundeck job execution patterns, success rates, and timing trends through an intuitive dashboard interface.
 
-![Job Metrics Dashboard](docs/images/jobmetrics.png)
+![Job Metrics Dashboard](docs/images/alljobsummary.png)
 *Job Metrics Dashboard showing summary stats and charts*
 
 ![Job Metrics Per Job](docs/images/job-stats.png)
