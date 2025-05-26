@@ -1,4 +1,5 @@
 //= require ./lib/support
+//= require ./lib/executionDataManager
 function initJobMetrics () {
   console.log('Check if Job Metrics should be initialized')
 
@@ -6,6 +7,7 @@ function initJobMetrics () {
   if (currentUi) {
     console.log('Initializing Job Metrics')
     var jobListSupport = new JobListSupport()
+    let dataManager;
 
     jQuery(function () {
       var DEBUG = true
@@ -64,13 +66,13 @@ function initJobMetrics () {
           // Convert to integer and validate
           var days = parseInt(newValue)
           if (isNaN(days) || days < 1) {
-            console.warn('Invalid days value. Must be a positive whole number.')
+            console.log('Invalid days value. Must be a positive whole number.')
             self.queryMax(10)
             return
           }
           // Ensure it's a whole number
           if (days !== parseFloat(newValue)) {
-            console.warn(
+            console.log(
               'Days value must be a whole number. Rounding to nearest integer.'
             )
             self.queryMax(days)
@@ -80,6 +82,22 @@ function initJobMetrics () {
           localStorage.setItem(
             'rundeck.plugin.ui-jobmetrics.timeWindow',
             days.toString()
+          )
+        })
+
+        // Initialize showZeroExecutions with saved value or default to false
+        const savedShowZeroExecutions = localStorage.getItem(
+          'rundeck.plugin.ui-jobmetrics.showZeroExecutions'
+        )
+        self.showZeroExecutions = ko.observable(
+          savedShowZeroExecutions ? savedShowZeroExecutions === 'true' : false
+        )
+
+        // Add persistence for showZeroExecutions
+        self.showZeroExecutions.subscribe(function (newValue) {
+          localStorage.setItem(
+            'rundeck.plugin.ui-jobmetrics.showZeroExecutions',
+            newValue.toString()
           )
         })
       }
@@ -97,6 +115,17 @@ function initJobMetrics () {
             : 'rgba(0, 0, 0, 0.2)'
         }
       }
+
+      // Initialize data manager
+      dataManager = new ExecutionDataManager(window._rundeck?.projectName || rundeckPage.project());
+      log('Data manager initialized:', dataManager);
+      
+      // Initialize worker in the background
+      dataManager.initWorker().then(() => {
+        log('Worker initialized successfully');
+      }).catch(err => {
+        log('Worker initialization failed:', err.message);
+      });
 
       function JobMetricsListView (pluginName) {
         var self = this
@@ -121,6 +150,15 @@ function initJobMetrics () {
           self.graphOptions().queryMax(parseInt(newValue))
           self.refreshExecData()
         })
+        
+        // Listen for showZeroExecutions changes
+        self.graphOptions().showZeroExecutions.subscribe(function (newValue) {
+          if (DEBUG) {
+            console.log('Show zero executions changed:', newValue)
+          }
+          // No need to refresh data, just trigger UI update
+          self.jobs.valueHasMutated()
+        })
 
         // Time window for metrics
         self.timeWindow = ko.computed(function () {
@@ -141,8 +179,13 @@ function initJobMetrics () {
           var jobs = self.jobs();
           var sortField = self.sortField();
           var sortDirection = self.sortDirection();
+          
+          // Filter jobs based on showZeroExecutions setting
+          var filteredJobs = jobs.filter(function(job) {
+              return job.executionCount() > 0 || self.graphOptions().showZeroExecutions();
+          });
       
-          return jobs.sort(function (a, b) {
+          return filteredJobs.sort(function (a, b) {
               var aValue, bValue;
               switch (sortField) {
                   case 'name':
@@ -210,10 +253,13 @@ function initJobMetrics () {
                     (sum, job) => sum + job.avgDuration(),
                     0
                   ) / jobsWithExecutions.length
-                : 0
+                : 0,
+            jobsWithNoExecutions:
+              self.jobs().length - jobsWithExecutions.length
           }
         })
 
+        // Updated to use dataManager
         self.refreshExecData = function () {
           if (self.loading()) return
 
@@ -223,13 +269,14 @@ function initJobMetrics () {
           var completedRequests = 0
           var timeWindow = parseInt(self.graphOptions().queryMax())
 
+          // Match ROI summary date range logic - subtract days from today (including today)
           const beginDate = moment()
             .startOf('day')
-            .subtract(timeWindow - 1, 'days')
+            .subtract(timeWindow, 'days')
             .format('YYYY-MM-DD')
           const endDate = moment().endOf('day').format('YYYY-MM-DD')
 
-          console.log('Date range for executions:', {
+          log('Date range for executions:', {
             timeWindow: timeWindow,
             begin: beginDate,
             end: endDate,
@@ -242,53 +289,40 @@ function initJobMetrics () {
             return
           }
 
-          jobs.forEach(function (job) {
-            var execUrl = `/api/40/job/${job.id}/executions`
-
-            jQuery.ajax({
-              url: execUrl,
-              method: 'GET',
-              data: {
-                max: 1000,
-                status: '',
-                includeJobRef: false,
-                begin: moment()
-                  .startOf('day')
-                  .subtract(self.graphOptions().queryMax() - 1, 'days')
-                  .format('YYYY-MM-DD'),
-                end: moment().endOf('day').format('YYYY-MM-DD')
-              },
-              success: function (data) {
-                if (data.executions && data.executions.length > 0) {
+          // Use Promise.all to handle all jobs in parallel
+          const promises = jobs.map(job => 
+            dataManager.getJobExecutions(job.id, timeWindow)
+              .then(executions => {
+                if (executions && executions.length > 0) {
                   var cutoffDate = moment()
                     .startOf('day')
-                    .subtract(self.timeWindow() - 1, 'days')
+                    .subtract(self.timeWindow(), 'days')
                   var filteredExecutions = filterExecutionsByDate(
-                    data.executions,
+                    executions,
                     cutoffDate
                   )
-
                   job.processExecutions(filteredExecutions)
                 }
-              },
-              error: function (xhr, status, error) {
+              })
+              .catch(error => {
                 console.error('Error fetching executions:', {
                   project: currentProject,
                   jobId: job.id,
-                  error: error,
-                  response: xhr.responseText
-                })
-              },
-              complete: function () {
-                completedRequests++
-                if (completedRequests === jobs.length) {
-                  self.loading(false)
-                  // Create charts after all data is loaded
-                  self.createCharts()
-                }
-              }
+                  error: error
+                });
+              })
+          );
+          
+          // When all jobs are processed, create the charts
+          Promise.all(promises)
+            .then(() => {
+              self.loading(false);
+              self.createCharts();
             })
-          })
+            .catch(error => {
+              console.error('Error processing jobs:', error);
+              self.loading(false);
+            });
         }
 
         self.loadJobs = function () {
@@ -558,13 +592,14 @@ function initJobMetrics () {
         self.successRateChart = null
         self.statusPieChart = null
 
+        // Updated to use dataManager
         self.loadMetricsData = function () {
           // Check if chart elements exist
           if (
             !document.getElementById('jobSuccessRateChart') ||
             !document.getElementById('jobStatusPieChart')
           ) {
-            console.warn('Chart elements not ready, retrying in 100ms...')
+            console.log('Chart elements not ready, retrying in 100ms...')
             setTimeout(() => self.loadMetricsData(), 100)
             return
           }
@@ -572,29 +607,17 @@ function initJobMetrics () {
           self.loading(true)
           var jobDetail = loadJsonData('jobDetail')
           var jobId = jobDetail.id
+          var timeWindow = self.graphOptions().queryMax()
 
-          var execsurl = `/api/40/job/${jobId}/executions`
-
-          jQuery.ajax({
-            url: execsurl,
-            method: 'GET',
-            data: {
-              max: 1000,
-              status: '',
-              includeJobRef: false,
-              begin: moment()
-                .startOf('day')
-                .subtract(self.graphOptions().queryMax() - 1, 'days')
-                .format('YYYY-MM-DD'),
-              end: moment().endOf('day').format('YYYY-MM-DD')
-            },
-            success: function (data) {
-              if (data.executions && data.executions.length > 0) {
+          // Use data manager to get executions
+          dataManager.getJobExecutions(jobId, timeWindow)
+            .then(executions => {
+              if (executions && executions.length > 0) {
                 var cutoffDate = moment()
                   .startOf('day')
-                  .subtract(self.graphOptions().queryMax() - 1, 'days')
+                  .subtract(self.graphOptions().queryMax(), 'days')
                 var filteredExecutions = filterExecutionsByDate(
-                  data.executions,
+                  executions,
                   cutoffDate
                 )
 
@@ -609,24 +632,27 @@ function initJobMetrics () {
                 }
               }
               self.loading(false)
-            },
-            error: function (xhr, status, error) {
+            })
+            .catch(error => {
               console.error('Error loading executions:', error)
               self.loading(false)
-            }
-          })
+            });
         }
 
         self.processExecutions = function (executions) {
           var successful = 0
           var totalDuration = 0
+          var mostRecentExec = null
 
           executions.forEach(function (execution) {
             if (execution.status === 'succeeded') {
               successful++
             }
-            if (execution.duration) {
-              totalDuration += execution.duration
+            
+            // Track the most recent execution for job.averageDuration
+            if (!mostRecentExec || (execution['date-started'] && mostRecentExec['date-started'] && 
+                execution['date-started'].date > mostRecentExec['date-started'].date)) {
+              mostRecentExec = execution
             }
           })
 
@@ -636,9 +662,21 @@ function initJobMetrics () {
           self.successRate(
             executions.length > 0 ? (successful / executions.length) * 100 : 0
           )
-          self.avgDuration(
-            executions.length > 0 ? totalDuration / executions.length : 0
-          )
+          
+          // Use job.averageDuration if available from most recent execution
+          if (mostRecentExec && mostRecentExec.job && mostRecentExec.job.averageDuration) {
+            self.avgDuration(mostRecentExec.job.averageDuration)
+          } else {
+            // Fallback to calculating from executions if necessary
+            executions.forEach(function (execution) {
+              if (execution.duration) {
+                totalDuration += execution.duration
+              }
+            })
+            self.avgDuration(
+              executions.length > 0 ? totalDuration / executions.length : 0
+            )
+          }
         }
 
         self.updateCharts = function (executions) {
@@ -815,14 +853,17 @@ function initJobMetrics () {
           self.executions = executions
           var successful = 0
           var totalDuration = 0
+          var mostRecentExec = null
 
           executions.forEach(function (execution) {
             if (execution.status === 'succeeded') {
               successful++
             }
 
-            if (execution.duration) {
-              totalDuration += execution.duration
+            // Track the most recent execution for job.averageDuration
+            if (!mostRecentExec || (execution['date-started'] && mostRecentExec['date-started'] && 
+                execution['date-started'].date > mostRecentExec['date-started'].date)) {
+              mostRecentExec = execution
             }
           })
 
@@ -832,15 +873,27 @@ function initJobMetrics () {
           self.successRate(
             executions.length > 0 ? (successful / executions.length) * 100 : 0
           )
-          self.avgDuration(
-            executions.length > 0 ? totalDuration / executions.length : 0
-          )
+          
+          // Use job.averageDuration if available from most recent execution
+          if (mostRecentExec && mostRecentExec.job && mostRecentExec.job.averageDuration) {
+            self.avgDuration(mostRecentExec.job.averageDuration)
+          } else {
+            // Fallback to calculating from executions if necessary
+            executions.forEach(function (execution) {
+              if (execution.duration) {
+                totalDuration += execution.duration
+              }
+            })
+            self.avgDuration(
+              executions.length > 0 ? totalDuration / executions.length : 0
+            )
+          }
           self.totalDuration(totalDuration)
         }
 
         // Format duration for display
-        self.formatDuration = function (seconds) {
-          return moment.duration(seconds, 'seconds').humanize()
+        self.formatDuration = function (miliseconds) {
+          return moment.duration(miliseconds).humanize()
         }
 
         // Computed for formatted display values
@@ -861,12 +914,6 @@ function initJobMetrics () {
           let pluginUrl = rundeckPage.pluginBaseUrl(pluginId)
           let pluginName = RDPRO[pluginId]
           jobMetricsView = new JobMetricsListView(pluginName)
-
-          // console.log('Plugin initialization:', {
-          //   pluginId: pluginId,
-          //   RDPRO: RDPRO,
-          //   pluginConfig: RDPRO[pluginId]?.config
-          // })
 
           jobListSupport.init_plugin(pluginId, function () {
             jQuery.get(pluginUrl + '/html/table.html', function (templateHtml) {
@@ -929,20 +976,16 @@ function initJobMetrics () {
           const observer = new MutationObserver(mutations => {
             mutations.forEach(mutation => {
               if (mutation.attributeName === 'data-color-theme') {
-                // console.log("Theme Change Seen")
-                //console.log("New theme value:", document.documentElement.getAttribute('data-color-theme'))
                 // Refresh charts when theme changes
                 if (
                   pagePath === 'menu/jobs' &&
                   jobMetricsView.refreshExecData
                 ) {
-                  //console.log("Refreshing menu/jobs charts")
                   jobMetricsView.refreshExecData()
                 } else if (
                   pagePath === 'scheduledExecution/show' &&
                   jobMetricsView.loadMetricsData
                 ) {
-                  //console.log("Refreshing scheduledExecution charts")
                   jobMetricsView.loadMetricsData()
                 }
               }
@@ -959,4 +1002,72 @@ function initJobMetrics () {
   }
 }
 
-window.addEventListener('DOMContentLoaded', initJobMetrics)
+// Main initialization for Job Metrics
+window.addEventListener('DOMContentLoaded', function() {
+  // Ensure RDPRO exists
+  if (typeof window.RDPRO !== 'object') {
+    window.RDPRO = {};
+  }
+  
+  // Ensure our plugin entry exists
+  if (!window.RDPRO["ui-jobmetrics"]) {
+    window.RDPRO["ui-jobmetrics"] = {
+      name: "ui-jobmetrics",
+      initialized: false
+    };
+  }
+  
+  // Prevent duplicate initialization
+  if (window.RDPRO["ui-jobmetrics"].initialized) return;
+
+  // Wait for ROI plugin's data loading events
+  const initializeOnRoiDataLoaded = function() {
+    const scripts = Array.from(document.scripts);
+
+    const roiSummaryScript = scripts.some(script =>
+        script.src.includes('ui-roisummary')
+    );
+
+    // Set a global flag that can be checked by both plugins to determine if ROI Summary is installed
+    window.RDPRO["ui-jobmetrics"].hasRoiSummary = !!roiSummaryScript;
+    console.log('Job Metrics detection - ROI Summary installed:', window.RDPRO["ui-jobmetrics"].hasRoiSummary);
+
+    if(!roiSummaryScript) {
+      // If ROI Summary is not installed, initialize immediately and fetch our own data
+      window.RDPRO["ui-jobmetrics"].initialized = true;
+      initJobMetrics();
+    } else {
+      // Listen for the job list ROI data loaded event
+      jQuery(document).on('rundeck:plugin:ui-roisummary:data-loaded:joblist', function(event) {
+        console.log('ROI Summary job list data loaded event received, initializing Job Metrics');
+        if (!window.RDPRO["ui-jobmetrics"].initialized) {
+          window.RDPRO["ui-jobmetrics"].initialized = true;
+          initJobMetrics();
+        }
+      });
+
+      // Listen for the job detail ROI data loaded event
+      jQuery(document).on('rundeck:plugin:ui-roisummary:data-loaded:jobroi', function(event) {
+        console.log('ROI Summary job detail data loaded event received, initializing Job Metrics');
+        if (!window.RDPRO["ui-jobmetrics"].initialized) {
+          window.RDPRO["ui-jobmetrics"].initialized = true;
+          initJobMetrics();
+        }
+      });
+      
+      // Also listen for the UI loaded event
+      // This will help initialize metrics even when a job doesn't have ROI data
+      jQuery(document).on('rundeck:plugin:ui-roisummary:ui-loaded:jobroi', function(event) {
+        console.log('ROI Summary job detail UI loaded event received, checking for Job Metrics initialization');
+        if (!window.RDPRO["ui-jobmetrics"].initialized) {
+          console.log('Job Metrics not yet initialized, initializing from UI loaded event');
+          window.RDPRO["ui-jobmetrics"].initialized = true;
+          initJobMetrics();
+        }
+      });
+    }
+  }
+
+  // Start listening for ROI events
+  initializeOnRoiDataLoaded();
+});

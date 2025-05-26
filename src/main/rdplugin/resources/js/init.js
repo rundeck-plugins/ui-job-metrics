@@ -1,9 +1,10 @@
 jQuery(function () {
-  if (typeof RDPRO != "object") {
+  if (typeof window.RDPRO != "object") {
       window.RDPRO = {};
   }
   
-  RDPRO["ui-jobmetrics"] = {
-      name: "ui-jobmetrics"
+  window.RDPRO["ui-jobmetrics"] = {
+      name: "ui-jobmetrics",
+      initialized: false
   };
 });
