@@ -1,0 +1,11 @@
+[versions]
+asset-pipeline = "3.4.0"
+sass-asset-pipeline = "3.4.0"
+axion-release = "1.18.12"
+
+[libraries]
+assetPipeline = { module = "com.bertramlabs.plugins:asset-pipeline-gradle", version.ref = "asset-pipeline" }
+sassAssetPipeline = { module = "com.bertramlabs.plugins:sass-asset-pipeline", version.ref = "sass-asset-pipeline" }
+
+[plugins]
+axionRelease = { id = "pl.allegro.tech.build.axion-release", version.ref = "axion-release" }

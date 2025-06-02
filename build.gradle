@@ -4,12 +4,12 @@ buildscript {
         maven { url "https://repo.grails.org/grails/core" }
     }
     dependencies {
-        classpath 'com.bertramlabs.plugins:asset-pipeline-gradle:2.11.6'
+        classpath libs.assetPipeline
     }
 }
 
 plugins {
-    id 'pl.allegro.tech.build.axion-release' version '1.7.0'
+    alias(libs.plugins.axionRelease)
     id 'java'
 }
 
@@ -20,8 +20,8 @@ repositories {
     maven { url "https://repo.grails.org/grails/core" }
 }
 
-sourceCompatibility = 1.11
-targetCompatibility = 1.11
+sourceCompatibility = 11
+targetCompatibility = 11
 
 println "Java Home: ${System.getProperty('java.home')}"
 println "Java Version: ${System.getProperty('java.version')}"
@@ -42,15 +42,8 @@ scmVersion {
     tag {
         prefix = ''
         versionSeparator = ''
-        def origDeserialize=deserialize
-        deserialize = { config, position, tagName ->
-            def orig = origDeserialize(config, position, tagName)
-            if (orig.split('\\.').length < 3) {
-                orig += ".0"
-            }
-            orig
-        }
     }
+    versionCreator('simple')
 }
 
 project.version = scmVersion.version
@@ -75,6 +68,14 @@ assets {
     from "${project.projectDir}/src/main/rdplugin/assets"
     compileDir = "${project.buildDir}/assets/resources"
 }
+
+task createMissingDirectories {
+    doFirst {
+        mkdir("${project.projectDir}/src/assets")
+    }
+}
+
+assetCompile.dependsOn createMissingDirectories
 
 defaultTasks 'build'
 
@@ -132,7 +133,7 @@ project.pluginZip.dependsOn assetCompile
 project.pluginZip.mustRunAfter assetCompile
 
 dependencies {
-    implementation 'com.bertramlabs.plugins:sass-asset-pipeline:2.11.6'
+    implementation libs.sassAssetPipeline
 }
 
 artifacts {

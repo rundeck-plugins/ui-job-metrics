@@ -46,8 +46,13 @@
         </div>
     </div>
 
+    <!-- Loading indicator -->
+    <div data-bind="visible: loading()" class="text-center">
+        <i class="glyphicon glyphicon-refresh spin"></i> Loading metrics...
+    </div>
+
     <!-- Charts container -->
-    <div class="jm-charts-container">
+    <div data-bind="visible: !loading() && executionCount" class="jm-charts-container">
         <div class="jm-chart-wrapper">
             <canvas id="jobSuccessRateChart"></canvas>
         </div>
