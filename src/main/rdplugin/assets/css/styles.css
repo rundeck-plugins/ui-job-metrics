@@ -117,7 +117,7 @@
 /* Job Metrics Summary styling */
 .job-metrics-summary {
     background: var(--background-color-lvl2);
-    padding: var(--spacing-lg);
+    padding: var(--spacing-lg) 0;
     border-radius: var(--border-radius);
 }
 

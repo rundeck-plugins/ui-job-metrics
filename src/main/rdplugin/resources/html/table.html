@@ -16,7 +16,7 @@
                 <div class="jm-summary-card">
                     <div class="jm-card-content">
                         <div class="jm-metric-value">
-                            <span data-bind="text: jobmetrics.summaryMetrics()?.totalJobs"></span>
+                            <span data-bind="text: jobmetrics.summaryMetrics()?.totalJobs || 0"></span>
                         </div>
                         <div class="jm-metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalJobs')"></div>
                     </div>
@@ -30,7 +30,7 @@
                 <div class="jm-summary-card">
                     <div class="jm-card-content">
                         <div class="jm-metric-value">
-                            <span data-bind="text: jobmetrics.summaryMetrics()?.totalExecutions"></span>
+                            <span data-bind="text: jobmetrics.summaryMetrics()?.totalExecutions || 0"></span>
                         </div>
                         <div class="jm-metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.totalExecutions')"></div>
                     </div>
@@ -58,7 +58,7 @@
                 <div class="jm-summary-card">
                     <div class="jm-card-content">
                         <div class="jm-metric-value">
-                            <span data-bind="text: moment.duration(jobmetrics.summaryMetrics()?.avgDuration || 0, 'seconds').humanize()"></span>
+                            <span data-bind="text: moment.duration(jobmetrics.summaryMetrics()?.avgDuration || 0).humanize()"></span>
                         </div>
                         <div class="jm-metric-label" data-bind="text: jobListSupport.i18Message('ui-jobmetrics', 'summary.avgDuration')"></div>
                     </div>
@@ -72,7 +72,7 @@
 
     <!-- Primary loading indicator -->
     <div data-bind="visible: jobmetrics.loading()" class="text-center p-3">
-        <i class="glyphicon glyphicon-refresh spin"></i> Loading metrics...
+        <i class="glyphicon glyphicon-refresh fa-spin"></i> Loading metrics...
     </div>
 
     <div data-bind="visible: !jobmetrics.loading()" class="jm-charts-container">
@@ -119,6 +119,10 @@
             </tr>
         </tbody>
     </table>
+
+    <div class="alert alert-info" data-bind="visible: jobmetrics.sortedJobs().length === 0">
+        <i class="glyphicon glyphicon-info-sign"></i> No executions found
+    </div>
 </div>
 
 <div class="modal" id="jobMetricsConfig" tabindex="-1" role="dialog">
@@ -157,7 +161,7 @@
                 </form>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-default" data-dismiss="modal">Close</button>
+                <button type="button" class="btn btn-default" data-dismiss="modal">Apply</button>
             </div>
         </div>
     </div>

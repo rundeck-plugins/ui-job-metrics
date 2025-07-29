@@ -1,27 +1,13 @@
 //= require ./lib/support
 //= require ./lib/executionDataManager
 function initJobMetrics () {
-  console.log('Check if Job Metrics should be initialized')
 
   const currentUi = !!document.querySelector('.ui-type-current')
   if (currentUi) {
-    console.log('Initializing Job Metrics')
     var jobListSupport = new JobListSupport()
     let dataManager;
 
     jQuery(function () {
-      var DEBUG = true
-      function log (...args) {
-        if (DEBUG) console.log(...args)
-      }
-
-      function _genUrl (template, data) {
-        var url = template
-        for (var k in data) {
-          url = url.replace('${' + k + '}', encodeURIComponent(data[k]))
-        }
-        return url
-      }
 
       function filterExecutionsByDate (executions, cutoffDate) {
         var executionsByDate = {}
@@ -53,39 +39,31 @@ function initJobMetrics () {
       function GraphOptions (data) {
         var self = this
 
-        // Initialize timeWindow with saved value or default
         const savedTimeWindow = localStorage.getItem(
-          'rundeck.plugin.ui-jobmetrics.timeWindow'
+          'rundeck.plugin.ui-jobmetrics.queryMax'
         )
         self.queryMax = ko.observable(
-          savedTimeWindow ? parseInt(savedTimeWindow) : 10
+          savedTimeWindow ? parseInt(savedTimeWindow) : 5
         )
 
-        // Add validation and persistence for queryMax
         self.queryMax.subscribe(function (newValue) {
-          // Convert to integer and validate
           var days = parseInt(newValue)
           if (isNaN(days) || days < 1) {
-            console.log('Invalid days value. Must be a positive whole number.')
-            self.queryMax(10)
+            self.queryMax(5)
+            localStorage.setItem('rundeck.plugin.ui-jobmetrics.queryMax', 5);
             return
           }
-          // Ensure it's a whole number
           if (days !== parseFloat(newValue)) {
-            console.log(
-              'Days value must be a whole number. Rounding to nearest integer.'
-            )
             self.queryMax(days)
+            localStorage.setItem('rundeck.plugin.ui-jobmetrics.queryMax', days);
             return
           }
-          // Save to localStorage
           localStorage.setItem(
-            'rundeck.plugin.ui-jobmetrics.timeWindow',
+            'rundeck.plugin.ui-jobmetrics.queryMax',
             days.toString()
           )
         })
 
-        // Initialize showZeroExecutions with saved value or default to false
         const savedShowZeroExecutions = localStorage.getItem(
           'rundeck.plugin.ui-jobmetrics.showZeroExecutions'
         )
@@ -93,7 +71,6 @@ function initJobMetrics () {
           savedShowZeroExecutions ? savedShowZeroExecutions === 'true' : false
         )
 
-        // Add persistence for showZeroExecutions
         self.showZeroExecutions.subscribe(function (newValue) {
           localStorage.setItem(
             'rundeck.plugin.ui-jobmetrics.showZeroExecutions',
@@ -116,16 +93,7 @@ function initJobMetrics () {
         }
       }
 
-      // Initialize data manager
       dataManager = new ExecutionDataManager(window._rundeck?.projectName || rundeckPage.project());
-      log('Data manager initialized:', dataManager);
-      
-      // Initialize worker in the background
-      dataManager.initWorker().then(() => {
-        log('Worker initialized successfully');
-      }).catch(err => {
-        log('Worker initialization failed:', err.message);
-      });
 
       function JobMetricsListView (pluginName) {
         var self = this
@@ -140,32 +108,19 @@ function initJobMetrics () {
         self.graphOptions = ko.observable(new GraphOptions())
 
         self.graphOptions().queryMax.subscribe(function (newValue) {
-          // Only log in one place
-          if (DEBUG) {
-            console.log('Time window changed:', {
-              newValue: parseInt(newValue),
-              type: typeof parseInt(newValue)
-            })
-          }
-          self.graphOptions().queryMax(parseInt(newValue))
-          self.refreshExecData()
+          self.graphOptions().queryMax(parseInt(newValue));
+          self.refreshExecData();
         })
         
         // Listen for showZeroExecutions changes
         self.graphOptions().showZeroExecutions.subscribe(function (newValue) {
-          if (DEBUG) {
-            console.log('Show zero executions changed:', newValue)
-          }
-          // No need to refresh data, just trigger UI update
           self.jobs.valueHasMutated()
         })
 
-        // Time window for metrics
         self.timeWindow = ko.computed(function () {
           return parseInt(self.graphOptions().queryMax())
         })
 
-        // Metrics tracking
         self.totalExecutions = ko.observable(0)
         self.successRate = ko.observable(0)
         self.avgDuration = ko.observable(0)
@@ -174,13 +129,11 @@ function initJobMetrics () {
         self.sortField = ko.observable('name')
         self.sortDirection = ko.observable('asc')
 
-        // Computed for sorted jobs
         self.sortedJobs = ko.computed(function () {
           var jobs = self.jobs();
           var sortField = self.sortField();
           var sortDirection = self.sortDirection();
           
-          // Filter jobs based on showZeroExecutions setting
           var filteredJobs = jobs.filter(function(job) {
               return job.executionCount() > 0 || self.graphOptions().showZeroExecutions();
           });
@@ -216,7 +169,6 @@ function initJobMetrics () {
           });
       });
 
-        // Get Header Icons in table
         self.getSortIcon = function (field) {
           if (self.sortField() !== field) {
             return 'glyphicon glyphicon-sort'
@@ -226,12 +178,10 @@ function initJobMetrics () {
             : 'glyphicon glyphicon-sort-by-attributes-alt'
         }
 
-        // Summary metrics computed
         self.summaryMetrics = ko.computed(function () {
           var jobs = self.sortedJobs()
           if (jobs.length === 0) return null
 
-          // Filter jobs to only include those with executions
           var jobsWithExecutions = jobs.filter(job => job.executionCount() > 0)
 
           return {
@@ -259,14 +209,12 @@ function initJobMetrics () {
           }
         })
 
-        // Updated to use dataManager
         self.refreshExecData = function () {
           if (self.loading()) return
 
           self.loading(true)
           var jobs = self.jobs()
           var currentProject = self.project()
-          var completedRequests = 0
           var timeWindow = parseInt(self.graphOptions().queryMax())
 
           // Match ROI summary date range logic - subtract days from today (including today)
@@ -276,12 +224,6 @@ function initJobMetrics () {
             .format('YYYY-MM-DD')
           const endDate = moment().endOf('day').format('YYYY-MM-DD')
 
-          log('Date range for executions:', {
-            timeWindow: timeWindow,
-            begin: beginDate,
-            end: endDate,
-            daysRequested: moment(endDate).diff(moment(beginDate), 'days') + 1
-          })
 
           if (!currentProject) {
             console.error('Project name is undefined')
@@ -289,39 +231,64 @@ function initJobMetrics () {
             return
           }
 
-          // Use Promise.all to handle all jobs in parallel
-          const promises = jobs.map(job => 
-            dataManager.getJobExecutions(job.id, timeWindow)
-              .then(executions => {
-                if (executions && executions.length > 0) {
-                  var cutoffDate = moment()
-                    .startOf('day')
-                    .subtract(self.timeWindow(), 'days')
-                  var filteredExecutions = filterExecutionsByDate(
-                    executions,
-                    cutoffDate
-                  )
-                  job.processExecutions(filteredExecutions)
-                }
-              })
-              .catch(error => {
-                console.error('Error fetching executions:', {
-                  project: currentProject,
-                  jobId: job.id,
-                  error: error
+          // Ensure worker is initialized before making requests
+          const ensureWorkerInitialized = async () => {
+            try {
+              // Only initialize worker if we have jobs to process
+              if (jobs.length > 0 && !dataManager.workerInitialized) {
+                log('Initializing worker on demand');
+                await dataManager.initWorker();
+              }
+              return true;
+            } catch (error) {
+              console.error('Failed to initialize worker:', error);
+              return false;
+            }
+          };
+
+          // Initialize worker only when needed and then process jobs
+          ensureWorkerInitialized()
+            .then(workerReady => {
+              if (!workerReady) {
+                self.loading(false);
+                console.error('Could not initialize worker - cannot load job metrics');
+                return;
+              }
+
+              // Use Promise.all to handle all jobs in parallel
+              const promises = jobs.map(job => 
+                dataManager.getJobExecutions(job.id, timeWindow)
+                  .then(executions => {
+                    if (executions && executions.length > 0) {
+                      var cutoffDate = moment()
+                        .startOf('day')
+                        .subtract(self.timeWindow(), 'days')
+                      var filteredExecutions = filterExecutionsByDate(
+                        executions,
+                        cutoffDate
+                      )
+                      job.processExecutions(filteredExecutions)
+                    }
+                  })
+                  .catch(error => {
+                    console.error('Error fetching executions:', {
+                      project: currentProject,
+                      jobId: job.id,
+                      error: error
+                    });
+                  })
+              );
+              
+              // When all jobs are processed, create the charts
+              Promise.all(promises)
+                .then(() => {
+                  self.loading(false);
+                  self.createCharts();
+                })
+                .catch(error => {
+                  console.error('Error processing jobs:', error);
+                  self.loading(false);
                 });
-              })
-          );
-          
-          // When all jobs are processed, create the charts
-          Promise.all(promises)
-            .then(() => {
-              self.loading(false);
-              self.createCharts();
-            })
-            .catch(error => {
-              console.error('Error processing jobs:', error);
-              self.loading(false);
             });
         }
 
@@ -357,9 +324,7 @@ function initJobMetrics () {
       };
         self.getSuccessRateOverTime = function () {
           var timeData = {}
-          //console.log('Getting success rate data for jobs:', self.jobs().length)
           self.jobs().forEach(function (job) {
-            //console.log('Job executions:', job.executions?.length || 0)
             job.executions.forEach(function (execution) {
               var date = moment(
                 execution['date-started']?.date || execution.dateStarted
@@ -390,7 +355,6 @@ function initJobMetrics () {
             rates.unshift(null) // Add null for the rate
           }
 
-          console.log('Chart data:', { dates, rates })
           return {
             labels: dates,
             data: rates
@@ -584,7 +548,7 @@ function initJobMetrics () {
         // Time window options
         self.graphOptions = ko.observable(
           new GraphOptions({
-            queryMax: 10
+            queryMax: 5
           })
         )
 
@@ -592,14 +556,13 @@ function initJobMetrics () {
         self.successRateChart = null
         self.statusPieChart = null
 
-        // Updated to use dataManager
+        // Updated to use dataManager with lazy initialization
         self.loadMetricsData = function () {
           // Check if chart elements exist
           if (
             !document.getElementById('jobSuccessRateChart') ||
             !document.getElementById('jobStatusPieChart')
           ) {
-            console.log('Chart elements not ready, retrying in 100ms...')
             setTimeout(() => self.loadMetricsData(), 100)
             return
           }
@@ -609,10 +572,39 @@ function initJobMetrics () {
           var jobId = jobDetail.id
           var timeWindow = self.graphOptions().queryMax()
 
-          // Use data manager to get executions
-          dataManager.getJobExecutions(jobId, timeWindow)
+          // Ensure worker is initialized before making requests
+          const ensureWorkerInitialized = async () => {
+            try {
+              if (!dataManager.workerInitialized) {
+                log('Initializing worker on demand');
+                await dataManager.initWorker();
+              }
+              return true;
+            } catch (error) {
+              console.error('Failed to initialize worker:', error);
+              return false;
+            }
+          };
+
+          // Initialize worker only when needed and then process job data
+          ensureWorkerInitialized()
+            .then(workerReady => {
+              if (!workerReady) {
+                self.loading(false);
+                console.error('Could not initialize worker - cannot load job metrics');
+                return;
+              }
+
+              // Use data manager to get executions
+              return dataManager.getJobExecutions(jobId, timeWindow);
+            })
             .then(executions => {
-              if (executions && executions.length > 0) {
+              if (!executions) {
+                self.loading(false);
+                return;
+              }
+                
+              if (executions.length > 0) {
                 var cutoffDate = moment()
                   .startOf('day')
                   .subtract(self.graphOptions().queryMax(), 'days')
@@ -825,7 +817,8 @@ function initJobMetrics () {
         }
 
         // Update when time window changes
-        self.graphOptions().queryMax.subscribe(function () {
+        self.graphOptions().queryMax.subscribe(function (newValue) {
+          self.graphOptions().queryMax(parseInt(newValue))
           self.loadMetricsData()
         })
       }
@@ -957,11 +950,21 @@ function initJobMetrics () {
             container.prependTo(statsTab)
           }
 
+          function sanitizeHTML(str) {
+            // Create a DOM parser to parse the HTML string
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(str, 'text/html');
+            
+            // Return the sanitized HTML
+            return doc.body.innerHTML;
+          }
+
           jobListSupport.init_plugin(pluginId, function () {
             jQuery.get(
               pluginUrl + '/html/job-metrics.html',
               function (templateHtml) {
-                container.html(templateHtml)
+                const sanitizedHTML = sanitizeHTML(templateHtml);
+                container.html(sanitizedHTML)
                 ko.applyBindings(jobMetricsView, container[0])
                 // Only load metrics after template is loaded and bound
                 setTimeout(() => {
@@ -1020,51 +1023,48 @@ window.addEventListener('DOMContentLoaded', function() {
   // Prevent duplicate initialization
   if (window.RDPRO["ui-jobmetrics"].initialized) return;
 
-  // Wait for ROI plugin's data loading events
+  // Detect presence of ROI plugin using optimized check
   const initializeOnRoiDataLoaded = function() {
-    const scripts = Array.from(document.scripts);
-
-    const roiSummaryScript = scripts.some(script =>
-        script.src.includes('ui-roisummary')
-    );
+    // More efficient check for ROI Summary plugin
+    const roiSummaryScript = (
+      typeof window.RDPRO === 'object' && 
+      typeof window.RDPRO['ui-roisummary'] === 'object'
+    ) || document.querySelector('script[src*="ui-roisummary"]') !== null;
 
     // Set a global flag that can be checked by both plugins to determine if ROI Summary is installed
     window.RDPRO["ui-jobmetrics"].hasRoiSummary = !!roiSummaryScript;
-    console.log('Job Metrics detection - ROI Summary installed:', window.RDPRO["ui-jobmetrics"].hasRoiSummary);
 
     if(!roiSummaryScript) {
       // If ROI Summary is not installed, initialize immediately and fetch our own data
       window.RDPRO["ui-jobmetrics"].initialized = true;
       initJobMetrics();
     } else {
-      // Listen for the job list ROI data loaded event
-      jQuery(document).on('rundeck:plugin:ui-roisummary:data-loaded:joblist', function(event) {
-        console.log('ROI Summary job list data loaded event received, initializing Job Metrics');
-        if (!window.RDPRO["ui-jobmetrics"].initialized) {
-          window.RDPRO["ui-jobmetrics"].initialized = true;
-          initJobMetrics();
+      // Single event handler function for all ROI events
+      const roiEventHandler = function(event) {
+        // Check if we're already initialized
+        if (window.RDPRO["ui-jobmetrics"].initialized) {
+          // Already initialized, clean up event handlers
+          jQuery(document).off('rundeck:plugin:ui-roisummary:data-loaded:joblist', roiEventHandler);
+          jQuery(document).off('rundeck:plugin:ui-roisummary:data-loaded:jobroi', roiEventHandler);
+          jQuery(document).off('rundeck:plugin:ui-roisummary:ui-loaded:jobroi', roiEventHandler);
+          return;
         }
-      });
-
-      // Listen for the job detail ROI data loaded event
-      jQuery(document).on('rundeck:plugin:ui-roisummary:data-loaded:jobroi', function(event) {
-        console.log('ROI Summary job detail data loaded event received, initializing Job Metrics');
-        if (!window.RDPRO["ui-jobmetrics"].initialized) {
-          window.RDPRO["ui-jobmetrics"].initialized = true;
-          initJobMetrics();
-        }
-      });
+        
+        window.RDPRO["ui-jobmetrics"].initialized = true;
+        
+        // Clean up event handlers after we've initialized
+        jQuery(document).off('rundeck:plugin:ui-roisummary:data-loaded:joblist', roiEventHandler);
+        jQuery(document).off('rundeck:plugin:ui-roisummary:data-loaded:jobroi', roiEventHandler);
+        jQuery(document).off('rundeck:plugin:ui-roisummary:ui-loaded:jobroi', roiEventHandler);
+        
+        // Initialize our plugin
+        initJobMetrics();
+      };
       
-      // Also listen for the UI loaded event
-      // This will help initialize metrics even when a job doesn't have ROI data
-      jQuery(document).on('rundeck:plugin:ui-roisummary:ui-loaded:jobroi', function(event) {
-        console.log('ROI Summary job detail UI loaded event received, checking for Job Metrics initialization');
-        if (!window.RDPRO["ui-jobmetrics"].initialized) {
-          console.log('Job Metrics not yet initialized, initializing from UI loaded event');
-          window.RDPRO["ui-jobmetrics"].initialized = true;
-          initJobMetrics();
-        }
-      });
+      // Listen for ROI events with the same handler
+      jQuery(document).on('rundeck:plugin:ui-roisummary:data-loaded:joblist', roiEventHandler);
+      jQuery(document).on('rundeck:plugin:ui-roisummary:data-loaded:jobroi', roiEventHandler);
+      jQuery(document).on('rundeck:plugin:ui-roisummary:ui-loaded:jobroi', roiEventHandler);
     }
   }
 

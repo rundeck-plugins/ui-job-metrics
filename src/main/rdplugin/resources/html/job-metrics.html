@@ -1,14 +1,13 @@
 <div class="job-metrics-summary">
     <h3 class="panel-title">Job Metrics Summary</h3>
     <div class="form-group">
-        <label>Time Window</label>
+        <label for="timeWindowInput">Time Window</label>
         <div class="input-group">
-            <input type="number" data-bind="value: graphOptions().queryMax"
+            <input id="timeWindowInput" type="number" data-bind="value: graphOptions().queryMax"
                 class="form-control input-sm" min="1" step="1" />
             <span class="input-group-addon">Days</span>
         </div>
     </div>
-    <!-- Replace the existing metrics row with this card-style layout -->
     <div class="jm-summary-cards">
         <div class="row">
             <div class="col-md-3">
