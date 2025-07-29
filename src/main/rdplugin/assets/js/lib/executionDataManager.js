@@ -6,7 +6,7 @@
  */
 class ExecutionDataManager {
     constructor(projectName) {
-        this.DEBUG = true;
+        this.DEBUG = false;
         this.projectName = projectName;
         
         // ROI plugin DB config - only for reading
@@ -27,7 +27,6 @@ class ExecutionDataManager {
             stores: {
                 jobCache: 'jobCache',
                 executionCache: 'executionCache',
-                metrics: 'metrics'
             }
         };
         
@@ -36,24 +35,10 @@ class ExecutionDataManager {
         this.CACHE_FRESHNESS_THRESHOLD = 8; // hours
         
         // For tracking the ROI plugin initialization
-        this.MAX_WAIT_TIME = 10000; // 10 seconds max wait time
-        this.POLL_INTERVAL = 100; // 100ms polling interval
         this.dbInitialized = false;
         this.dbInitializing = false;
         this.waitingForRoiPlugin = false;
-        
-        // Tracking
-        this.metrics = {
-            cacheHits: 0,
-            cacheMisses: 0,
-            apiRequests: 0,
-            workerRequests: 0,
-            errors: []
-        };
-        
-        // Keep job registry to match ROI plugin approach
-        this.processedJobRegistry = new Map();
-        
+
         // DB references
         this.dbPromise = null;
         this.db = null;
@@ -71,18 +56,12 @@ class ExecutionDataManager {
         this.workerInitPromise = null;
         this.WORKER_INIT_TIMEOUT = 10000; // 10 seconds
         this.HEALTH_CHECK_INTERVAL = 1000 * 60 * 5; // 5 minutes
-        
-        // Health check timers
-        this.healthCheckIntervalId = null;
-        this.lastHealthCheck = 0;
-        
+
         // For tracking fetch operations in progress to prevent duplicates
         this.fetchOperationsInProgress = new Map();
         
         // Set up navigation event handlers to properly terminate workers
         this.setupNavigationHandlers();
-        
-        // Don't auto-initialize - wait for the first actual data request
     }
     
     // Logging utilities
@@ -120,20 +99,6 @@ class ExecutionDataManager {
             console.log('Context:', context);
         }
         console.groupEnd();
-        
-        // Store errors for metrics
-        this.metrics.errors.push({
-            timestamp: new Date().toISOString(),
-            method,
-            message: error.message,
-            stack: error.stack,
-            context
-        });
-        
-        // Keep error list manageable
-        if (this.metrics.errors.length > 100) {
-            this.metrics.errors.shift();
-        }
     }
     
     /**
@@ -153,196 +118,20 @@ class ExecutionDataManager {
             this.logError('setupNavigationHandlers', error);
         }
     }
-    
-    /**
-     * Check if ROI plugin has initialized the database yet
-     * This performs a simple non-intrusive check
-     */
-    async isRoiDbInitialized() {
-        try {
-            // First check the window flag to see if ROI plugin is even installed
-            if (window.RDPRO && window.RDPRO["ui-jobmetrics"] && window.RDPRO["ui-jobmetrics"].hasRoiSummary === false) {
-                // If we know ROI Summary is not installed, don't even try to access its database
-                this.log('isRoiDbInitialized', 'ROI Summary plugin is not installed (checked window flag)');
-                return false;
-            }
-            
-            // Try to open the ROI database without making any changes
-            const request = indexedDB.open(this.ROI_DB_CONFIG.name);
-            
-            return new Promise((resolve) => {
-                // If we can open it, and the expected stores exist, 
-                // then ROI plugin has probably initialized it
-                request.onsuccess = () => {
-                    const db = request.result;
-                    const hasExpectedStores = 
-                        db.objectStoreNames.contains(this.ROI_DB_CONFIG.stores.executionCache) &&
-                        db.objectStoreNames.contains(this.ROI_DB_CONFIG.stores.jobCache);
-                    
-                    db.close();
-                    resolve(hasExpectedStores);
-                };
-                
-                // If error, ROI plugin probably hasn't initialized it yet
-                request.onerror = () => {
-                    resolve(false);
-                };
-            });
-        } catch (error) {
-            return false;
-        }
-    }
-    
-    /**
-     * Wait for ROI plugin to initialize the database
-     * Uses polling with a timeout to avoid waiting forever
-     */
-    async waitForRoiPlugin() {
-        // First check if ROI Summary plugin is even installed
-        if (window.RDPRO && 
-            window.RDPRO["ui-jobmetrics"] && 
-            window.RDPRO["ui-jobmetrics"].hasRoiSummary === false) {
-            // If we know ROI Summary is not installed, don't wait for it
-            this.log('waitForRoiPlugin', 'ROI Summary plugin is not installed (checked window flag), skipping wait');
-            return false;
-        }
-            
-        if (this.waitingForRoiPlugin) {
-            this.log('waitForRoiPlugin', 'Already waiting for ROI plugin');
-            return false;
-        }
-        
-        this.waitingForRoiPlugin = true;
-        const startTime = Date.now();
-        let initialized = false;
-        
-        try {
-            this.log('waitForRoiPlugin', 'Waiting for ROI plugin to initialize database...');
-            
-            // Keep checking until initialized or timeout
-            while (!initialized && (Date.now() - startTime < this.MAX_WAIT_TIME)) {
-                initialized = await this.isRoiDbInitialized();
-                
-                if (initialized) {
-                    this.log('waitForRoiPlugin', 'ROI plugin database initialized!');
-                    
-                    // Additional wait for data to be populated
-                    await new Promise(resolve => setTimeout(resolve, 800));
-                    
-                    // Now check if any data exists in the ROI cache
-                    await this.checkRoiCachePopulated();
-                    
-                    break;
-                }
-                
-                // Wait before checking again
-                await new Promise(resolve => setTimeout(resolve, this.POLL_INTERVAL));
-            }
-            
-            if (!initialized) {
-                this.log('waitForRoiPlugin', `Timed out after ${this.MAX_WAIT_TIME}ms`);
-            }
-            
-            return initialized;
-        } finally {
-            this.waitingForRoiPlugin = false;
-        }
-    }
-    
-    /**
-     * Check if ROI cache has been populated with data
-     * This helps us detect when ROI plugin has not only created the database
-     * but also populated it with job data
-     */
-    async checkRoiCachePopulated() {
-        // First check if ROI Summary plugin is even installed
-        if (window.RDPRO && 
-            window.RDPRO["ui-jobmetrics"] && 
-            window.RDPRO["ui-jobmetrics"].hasRoiSummary === false) {
-            // If we know ROI Summary is not installed, skip this check
-            this.log('checkRoiCachePopulated', 'ROI Summary plugin is not installed (checked window flag), skipping check');
-            return false;
-        }
-            
-        try {
-            // Try to open the ROI database
-            const request = indexedDB.open(this.ROI_DB_CONFIG.name);
-            
-            const db = await new Promise((resolve, reject) => {
-                request.onsuccess = () => resolve(request.result);
-                request.onerror = () => reject(request.error);
-            });
-            
-            let hasData = false;
-            
-            try {
-                // First check if the required store exists
-                if (!db.objectStoreNames.contains(this.ROI_DB_CONFIG.stores.jobCache)) {
-                    this.log('checkRoiCachePopulated', `Required store ${this.ROI_DB_CONFIG.stores.jobCache} doesn't exist in ROI database`);
-                    db.close();
-                    return false;
-                }
-                
-                const transaction = db.transaction(this.ROI_DB_CONFIG.stores.jobCache, 'readonly');
-                const store = transaction.objectStore(this.ROI_DB_CONFIG.stores.jobCache);
-                const countRequest = store.count();
-                
-                const count = await new Promise((resolve, reject) => {
-                    countRequest.onsuccess = () => resolve(countRequest.result);
-                    countRequest.onerror = () => reject(countRequest.error);
-                });
-                
-                hasData = count > 0;
-                
-                if (hasData) {
-                    this.log('checkRoiCachePopulated', `ROI cache populated with ${count} jobs`);
-                } else {
-                    // If no data found yet, wait a bit longer
-                    this.log('checkRoiCachePopulated', 'ROI cache exists but no job data yet, waiting...');
-                    await new Promise(resolve => setTimeout(resolve, 1000));
-                }
-            } catch (error) {
-                this.log('checkRoiCachePopulated', 'Error checking ROI cache: ' + error.message);
-            } finally {
-                db.close();
-            }
-            
-            return hasData;
-        } catch (error) {
-            this.log('checkRoiCachePopulated', 'Failed to check ROI cache: ' + error.message);
-            return false;
-        }
-    }
-    
-    // Database initialization
+    // Database initialization - optimized for non-blocking operation
     async initDb() {
-        // Return existing connection if available
         if (this.db && this.roiDb) {
             return { db: this.db, roiDb: this.roiDb };
         }
-        
-        // Return existing promise if initialization is in progress
+
         if (this.dbPromise) {
             return this.dbPromise;
         }
-        
-        // Set flag to indicate initialization is in progress
+
         this.dbInitializing = true;
         
-        // Try to get current time window from ROI plugin first
-        try {
-            const roiTimeWindow = localStorage.getItem('rundeck.plugin.roisummary.queryMax');
-            if (roiTimeWindow && !isNaN(parseInt(roiTimeWindow))) {
-                this.log('initDb', `Found ROI time window: ${roiTimeWindow} days`);
-            }
-        } catch (e) {
-            // Ignore localStorage errors
-        }
-        
-        // Simplified initialization - we're already waiting in the main flow
-        this.log('initDb', 'Initializing database connections');
-        
-        this.log('initDb', 'Initializing IndexedDB connections');
+        // Simplified initialization with lower timeouts
+        this.log('initDb', 'Initializing database connections (non-blocking)');
         
         this.dbPromise = new Promise((resolve, reject) => {
             try {
@@ -368,24 +157,32 @@ class ExecutionDataManager {
                         this.dbInitialized = true;
                         this.dbInitializing = false;
                         
-                        // Now that we're connected, restore the job registry
-                        this.restoreJobRegistry().catch(err => {
-                            this.logError('initDb:restoreJobRegistry', err);
-                        });
-                        
                         // Clear the promise so we can re-initialize if needed
                         this.dbPromise = null;
                         resolve({ db: this.db, roiDb: this.roiDb });
                     }
                 };
                 
+                // Use a shorter timeout for database operations
+                const DB_OPERATION_TIMEOUT = 3000; // 3 seconds max
+                
                 // Only try to connect to ROI database if ROI Summary is installed
                 if (roiSummaryInstalled) {
-                    // 1. Connect to ROI plugin's database for reading
+                    // 1. Connect to ROI plugin's database for reading with timeout
                     this.log('initDb', 'Attempting to connect to ROI database');
+                    
+                    // Add timeout for ROI DB connection
+                    const roiTimeout = setTimeout(() => {
+                        this.log('initDb', 'ROI database connection timed out, continuing without it');
+                        connections.roiDb = null;
+                        completedConnections++;
+                        checkComplete();
+                    }, DB_OPERATION_TIMEOUT);
+                    
                     const roiRequest = indexedDB.open(this.ROI_DB_CONFIG.name, this.ROI_DB_CONFIG.version);
                     
                     roiRequest.onerror = (event) => {
+                        clearTimeout(roiTimeout);
                         const error = new Error('Failed to open ROI database: ' + (roiRequest.error || 'Unknown error'));
                         this.logError('initDb', error);
                         // Continue with our own database even if ROI db fails
@@ -395,6 +192,7 @@ class ExecutionDataManager {
                     };
                     
                     roiRequest.onsuccess = () => {
+                        clearTimeout(roiTimeout);
                         connections.roiDb = roiRequest.result;
                         
                         this.log('initDb', 'Successfully connected to ROI plugin database (read-only)', {
@@ -409,12 +207,24 @@ class ExecutionDataManager {
                     // Skip ROI database connection if ROI Summary is not installed
                     this.log('initDb', 'ROI Summary is not installed, skipping ROI database connection');
                     connections.roiDb = null;
+                    // Mark this connection as completed
+                    completedConnections++;
+                    // No need to call checkComplete here - will be called after our DB connection
                 }
                 
                 // 2. Create/connect to our own database for writing
                 const request = indexedDB.open(this.DB_CONFIG.name, this.DB_CONFIG.version);
                 
+                // Add timeout for our DB connection
+                const dbTimeout = setTimeout(() => {
+                    this.log('initDb', 'Job Metrics database connection timed out');
+                    this.dbPromise = null;
+                    this.dbInitializing = false;
+                    reject(new Error('Database connection timeout'));
+                }, DB_OPERATION_TIMEOUT);
+                
                 request.onerror = (event) => {
+                    clearTimeout(dbTimeout);
                     const error = new Error('Failed to open Job Metrics database: ' + (request.error || 'Unknown error'));
                     this.logError('initDb', error);
                     this.dbPromise = null;
@@ -423,6 +233,7 @@ class ExecutionDataManager {
                 };
                 
                 request.onsuccess = () => {
+                    clearTimeout(dbTimeout);
                     connections.db = request.result;
                     
                     // Enable auto-closing connections to avoid blocking issues
@@ -459,10 +270,6 @@ class ExecutionDataManager {
                     if (!db.objectStoreNames.contains(this.DB_CONFIG.stores.executionCache)) {
                         db.createObjectStore(this.DB_CONFIG.stores.executionCache, { keyPath: 'id' });
                     }
-                    
-                    if (!db.objectStoreNames.contains(this.DB_CONFIG.stores.metrics)) {
-                        db.createObjectStore(this.DB_CONFIG.stores.metrics, { keyPath: 'id' });
-                    }
                 };
                 
             } catch (error) {
@@ -475,232 +282,6 @@ class ExecutionDataManager {
         
         return this.dbPromise;
     }
-    
-    /**
-     * Restore the job registry from our cache and ROI plugin's cache
-     * This helps us avoid unnecessary API calls
-     */
-    async restoreJobRegistry() {
-        console.log('DEBUG: Starting restoreJobRegistry - this might be populating the cache');
-        try {
-            if (!this.db) {
-                this.log('restoreJobRegistry', 'Database not initialized yet');
-                return;
-            }
-            
-            this.log('restoreJobRegistry', 'Restoring job registry from IndexedDB');
-            
-            // Get all job cache entries from our cache
-            const allEntries = await this.getAllEntries(this.DB_CONFIG.stores.jobCache);
-            if (!allEntries || allEntries.length === 0) {
-                this.log('restoreJobRegistry', 'No cached job entries found in our cache');
-            } else {
-                // Process entries from our cache
-                let validEntryCount = 0;
-                let staleEntryCount = 0;
-                const now = Date.now();
-                
-                allEntries.forEach(entry => {
-                    if (entry && entry.id && entry.timestamp) {
-                        // Only add entries that aren't too old
-                        if (now - entry.timestamp < this.EXECUTION_CACHE_TTL) {
-                            this.processedJobRegistry.set(entry.id, {
-                                timestamp: entry.timestamp,
-                                hasRoi: 'hasRoi' in entry ? !!entry.hasRoi : null,
-                                assumed: !!entry.assumed
-                            });
-                            validEntryCount++;
-                        } else {
-                            staleEntryCount++;
-                        }
-                    }
-                });
-                
-                console.log(`DEBUG: restoreJobRegistry loaded ${validEntryCount} valid entries from our cache`);
-                this.logGroup('restoreJobRegistry:ourCache', {
-                    totalEntriesFound: allEntries.length,
-                    validEntriesRestored: validEntryCount,
-                    staleEntriesIgnored: staleEntryCount,
-                    registrySize: this.processedJobRegistry.size
-                });
-            }
-            
-            // Now check for entries in ROI's job cache
-            if (this.roiDb) {
-                try {
-                    const roiEntries = await this.getAllEntriesFromDb(this.roiDb, this.ROI_DB_CONFIG.stores.jobCache);
-                    if (roiEntries && roiEntries.length > 0) {
-                        let validRoiEntries = 0;
-                        const now = Date.now();
-                        
-                        roiEntries.forEach(entry => {
-                            if (entry && entry.id && 'hasRoi' in entry) {
-                                // Skip if we already have more recent info in our registry
-                                if (this.processedJobRegistry.has(entry.id)) {
-                                    const existing = this.processedJobRegistry.get(entry.id);
-                                    if (existing.timestamp > (entry.timestamp || 0)) {
-                                        return; // Skip this one, our data is fresher
-                                    }
-                                }
-                                
-                                // Add to registry
-                                this.processedJobRegistry.set(entry.id, {
-                                    timestamp: entry.timestamp || now,
-                                    hasRoi: !!entry.hasRoi,
-                                    fromRoi: true
-                                });
-                                validRoiEntries++;
-                                
-                                // Also copy to our own cache for future use
-                                const jobInfo = {
-                                    id: entry.id,
-                                    timestamp: now,
-                                    hasRoi: !!entry.hasRoi,
-                                    fromRoi: true
-                                };
-                                
-                                // Store asynchronously
-                                this.set(this.DB_CONFIG.stores.jobCache, jobInfo)
-                                    .catch(err => this.logError('restoreJobRegistry:cacheError', err, { jobId: entry.id }));
-                            }
-                        });
-                        
-                        console.log(`DEBUG: restoreJobRegistry - Found ${roiEntries.length} entries in ROI job cache, copied ${validRoiEntries} to our cache`);
-                        this.log('restoreJobRegistry:roiCache', `Found ${roiEntries.length} entries in ROI job cache, ${validRoiEntries} had valid ROI status`);
-                    } else {
-                        this.log('restoreJobRegistry', 'No entries found in ROI job cache');
-                    }
-                } catch (roiError) {
-                    this.logError('restoreJobRegistry:roiCache', roiError);
-                }
-            }
-            
-            this.logGroup('restoreJobRegistry:complete', {
-                registrySize: this.processedJobRegistry.size
-            });
-            
-            // Now restore the execution cache registry
-            await this.restoreExecutionRegistry();
-            
-            // No longer syncing all data from ROI cache automatically
-            // as requested in CLAUDE.md
-            
-        } catch (error) {
-            this.logError('restoreJobRegistry', error);
-            // Non-fatal - continue without registry
-        }
-    }
-    
-    /**
-     * Restore execution registry - records which job executions are already cached
-     */
-    async restoreExecutionRegistry() {
-        console.log('DEBUG: Starting restoreExecutionRegistry - checking what executions are cached');
-        try {
-            if (!this.db) {
-                this.log('restoreExecutionRegistry', 'Database not initialized yet');
-                return;
-            }
-            
-            this.log('restoreExecutionRegistry', 'Examining execution cache entries');
-            
-            // List all execution cache entries
-            const allEntries = await this.listStoreKeys(this.DB_CONFIG.stores.executionCache);
-            
-            console.log(`DEBUG: restoreExecutionRegistry found ${allEntries.length} existing executions in cache - THIS MAY EXPLAIN CACHE HITS`);
-            this.logGroup('restoreExecutionRegistry', {
-                entriesFound: allEntries.length
-            });
-        } catch (error) {
-            this.logError('restoreExecutionRegistry', error);
-        }
-    }
-    
-    // syncExecutionsFromRoiCache method removed as requested in CLAUDE.md
-    // We no longer want to blindly replicate data from ROI cache to Job Metrics cache
-    
-    // List all keys in a store - MODIFIED: follows the same pattern as 'get' and 'getAllEntries'
-    async listStoreKeys(storeName) {
-        try {
-            const { roiDb, db } = await this.ensureDbConnection();
-            
-            // ALWAYS check our own database first
-            const ourResult = await this.listStoreKeysFromDb(db, storeName);
-            if (ourResult && ourResult.length > 0) {
-                console.log(`DEBUG: listStoreKeys found ${ourResult.length} entries in OUR database for ${storeName}`);
-                return ourResult;
-            } else {
-                console.log(`DEBUG: listStoreKeys found NO entries in OUR database for ${storeName}`);
-            }
-            
-            // For executionCache, we need special handling to prevent non-ROI job cache hits
-            if (storeName === this.DB_CONFIG.stores.executionCache) {
-                // For execution cache, don't check ROI DB by default
-                // Individual job execution data is fetched through get() which has proper hasRoi checking
-                console.log(`DEBUG: listStoreKeys for executionCache - not checking ROI DB (should use get instead)`);
-                return [];
-            }
-            
-            // For other stores like jobCache, we can still check ROI database
-            if (roiDb) {
-                try {
-                    const result = await this.listStoreKeysFromDb(roiDb, storeName);
-                    if (result && result.length > 0) {
-                        console.log(`DEBUG: listStoreKeys found ${result.length} entries in ROI database for ${storeName}`);
-                        return result;
-                    }
-                } catch (error) {
-                    this.log('listStoreKeys', `Failed to read from ROI database: ${error.message}`);
-                }
-            }
-            
-            // Return empty array if not found in either database
-            return [];
-        } catch (error) {
-            this.logError('listStoreKeys', error, { storeName });
-            return [];
-        }
-    }
-    
-    // Helper method to list keys from a specific database
-    async listStoreKeysFromDb(db, storeName) {
-        if (!db) return [];
-        
-        // Check if this is the ROI database and if ROI plugin is installed
-        if (db === this.roiDb && 
-            window.RDPRO && 
-            window.RDPRO["ui-jobmetrics"] && 
-            window.RDPRO["ui-jobmetrics"].hasRoiSummary === false) {
-            // Don't attempt to access ROI database when ROI plugin is not installed
-            this.log('listStoreKeysFromDb', `Not accessing ROI database when ROI plugin is not installed (store: ${storeName})`);
-            return [];
-        }
-        
-        // Check if the store exists in the database to avoid errors
-        if (!db.objectStoreNames.contains(storeName)) {
-            this.log('listStoreKeysFromDb', `Store ${storeName} does not exist in database ${db.name}`);
-            return [];
-        }
-        
-        return new Promise((resolve, reject) => {
-            try {
-                const transaction = db.transaction(storeName, 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.getAllKeys();
-                
-                request.onsuccess = () => {
-                    resolve(request.result);
-                };
-                
-                request.onerror = () => {
-                    reject(new Error(`Failed to list keys: ${request.error || 'Unknown error'}`));
-                };
-            } catch (error) {
-                reject(error);
-            }
-        });
-    }
-    
     // Ensure database is initialized before performing operations
     async ensureDbConnection() {
         // If we have both databases already initialized, return them
@@ -728,7 +309,7 @@ class ExecutionDataManager {
         }
     }
     
-    // Get data from cache - MODIFIED: check our DB FIRST, only check ROI for executionCache when job has hasRoi=true
+    // Get data from cache
     async get(storeName, key) {
         try {
             const { roiDb, db } = await this.ensureDbConnection();
@@ -754,18 +335,17 @@ class ExecutionDataManager {
                 
                 // Only check ROI cache for jobs WITH hasRoi=true
                 if (hasRoiMetrics === true) {
-                    console.log(`DEBUG: Job ${jobId} has ROI metrics, checking ROI cache`);
                     try {
                         const result = await this.getFromDb(roiDb, storeName, key);
                         if (result) {
-                            console.log(`DEBUG: Found data for ROI job ${jobId} in ROI cache`);
+                            // console.log(`DEBUG: Found data for ROI job ${jobId} in ROI cache`);
                             return result;
                         }
                     } catch (error) {
                         this.log('get', `Failed to read from ROI database for ROI job: ${error.message}`);
                     }
                 } else {
-                    console.log(`DEBUG: Job ${jobId} has no ROI metrics, NOT checking ROI cache`);
+                    // console.log(`DEBUG: Job ${jobId} has no ROI metrics, NOT checking ROI cache`);
                     // For non-ROI jobs, we intentionally don't check ROI cache
                     // This ensures we make API calls for non-ROI jobs
                 }
@@ -803,10 +383,7 @@ class ExecutionDataManager {
             return null;
         }
         
-        if (storeName === this.DB_CONFIG.stores.executionCache) {
-            console.log(`DEBUG: getFromDb called for execution data - key=${key} in ${db.name}`);
-        }
-        
+
         // Check if the store exists in the database to avoid errors
         if (!db.objectStoreNames.contains(storeName)) {
             this.log('getFromDb', `Store ${storeName} does not exist in database ${db.name}`);
@@ -879,96 +456,11 @@ class ExecutionDataManager {
             throw error;
         }
     }
-    
-    // Get all entries from a store - MODIFIED: check our DB FIRST following the same pattern as 'get'
-    async getAllEntries(storeName) {
-        try {
-            const { roiDb, db } = await this.ensureDbConnection();
-            
-            // ALWAYS check our own database first
-            const ourResult = await this.getAllEntriesFromDb(db, storeName);
-            if (ourResult && ourResult.length > 0) {
-                return ourResult;
-            }
-            
-            // For executionCache, we shouldn't get ALL entries from ROI DB
-            // since that would give us both ROI and non-ROI jobs mixed together
-            // Instead, specific job executions should be fetched via get() which has proper ROI checking
-            if (storeName === this.DB_CONFIG.stores.executionCache) {
-                // Return empty array if our database has no entries
-                // This is important to ensure we don't mix ROI and non-ROI data
-                console.log(`DEBUG: getAllEntries for executionCache - not checking ROI DB (should use get instead)`);
-                return [];
-            }
-            
-            // For other stores like jobCache, we can still check ROI database
-            if (roiDb) {
-                try {
-                    const result = await this.getAllEntriesFromDb(roiDb, storeName);
-                    if (result && result.length > 0) {
-                        return result;
-                    }
-                } catch (error) {
-                    this.log('getAllEntries', `Failed to read from ROI database: ${error.message}`);
-                }
-            }
-            
-            // Return empty array if not found in either database
-            return [];
-        } catch (error) {
-            this.logError('getAllEntries', error, { storeName });
-            return [];
-        }
-    }
-    
-    // Helper method to get all entries from a specific database
-    async getAllEntriesFromDb(db, storeName) {
-        if (!db) return [];
-        
-        // Check if this is the ROI database and if ROI plugin is installed
-        if (db === this.roiDb && 
-            window.RDPRO && 
-            window.RDPRO["ui-jobmetrics"] && 
-            window.RDPRO["ui-jobmetrics"].hasRoiSummary === false) {
-            // Don't attempt to access ROI database when ROI plugin is not installed
-            this.log('getAllEntriesFromDb', `Not accessing ROI database when ROI plugin is not installed (store: ${storeName})`);
-            return [];
-        }
-        
-        // Check if the store exists in the database to avoid errors
-        if (!db.objectStoreNames.contains(storeName)) {
-            this.log('getAllEntriesFromDb', `Store ${storeName} does not exist in database ${db.name}`);
-            return [];
-        }
-        
-        return new Promise((resolve, reject) => {
-            try {
-                const transaction = db.transaction(storeName, 'readonly');
-                const store = transaction.objectStore(storeName);
-                const request = store.getAll();
-                
-                request.onsuccess = () => {
-                    resolve(request.result);
-                };
-                
-                request.onerror = () => {
-                    reject(new Error(`Failed to get entries: ${request.error || 'Unknown error'}`));
-                };
-            } catch (error) {
-                reject(error);
-            }
-        });
-    }
-    
+
     // Get executions for a job, leveraging ROI plugin's cache or web worker
     async getJobExecutions(jobId, timeWindow) {
         this.log('getJobExecutions', `Getting executions for job ${jobId} with timeWindow ${timeWindow}`);
-        
-        // Sync time window with ROI Summary to keep plugins in sync
-        this.synchronizeTimeWindowWithRoi(timeWindow);
 
-        // Worker-only implementation - we're excluding direct AJAX calls to avoid race conditions
-        
         try {
             // First check if DB is available - this will wait for ROI plugin if needed
             try {
@@ -1004,25 +496,14 @@ class ExecutionDataManager {
                 // Try to get cached data from our executionCache
                 cachedData = await this.get(this.DB_CONFIG.stores.executionCache, executionCacheKey);
                 
-                if (cachedData) {
-                    console.log(`DEBUG: Found cached data for ${jobId} in our cache`, {
-                        hasData: Array.isArray(cachedData.data) && cachedData.data.length > 0,
-                        entryCount: Array.isArray(cachedData.data) ? cachedData.data.length : 0,
-                        timestamp: cachedData.timestamp ? new Date(cachedData.timestamp).toISOString() : 'none'
-                    });
-                }
+                // if (cachedData) {
+                //     console.log(`DEBUG: Found cached data for ${jobId} in our cache`, {
+                //         hasData: Array.isArray(cachedData.data) && cachedData.data.length > 0,
+                //         entryCount: Array.isArray(cachedData.data) ? cachedData.data.length : 0,
+                //         timestamp: cachedData.timestamp ? new Date(cachedData.timestamp).toISOString() : 'none'
+                //     });
+                // }
 
-                // If not found directly, check if data exists with sanitized key
-                if (!cachedData) {
-                    this.log('getJobExecutions', `No direct match for ${executionCacheKey}, trying sanitized key`);
-                    
-                    // Try alternative key formats that might be used by ROI plugin
-                    const sanitizedKey = jobId.replace(/[^a-zA-Z0-9-]/g, '_');
-                    if (sanitizedKey !== jobId) {
-                        cachedData = await this.get(this.DB_CONFIG.stores.executionCache, sanitizedKey);
-                    }
-                }
-                
                 // If still not found in our cache, try the ROI plugin's cache
                 // but ONLY if this job has ROI metrics
                 if (!cachedData && hasRoiMetrics) {
@@ -1109,7 +590,7 @@ class ExecutionDataManager {
                         
                         // Also check the age threshold
                         if (dataAge >= (this.CACHE_FRESHNESS_THRESHOLD * 60 * 60 * 1000)) {
-                            console.log(`DEBUG: Non-ROI job ${jobId} cache age ${(dataAge / (1000 * 60 * 60)).toFixed(1)} hours exceeds threshold of ${this.CACHE_FRESHNESS_THRESHOLD} hours`);
+                            // console.log(`DEBUG: Non-ROI job ${jobId} cache age ${(dataAge / (1000 * 60 * 60)).toFixed(1)} hours exceeds threshold of ${this.CACHE_FRESHNESS_THRESHOLD} hours`);
                             this.log('getJobExecutions', 'Non-ROI job needs refresh: Cache exceeds freshness threshold', {
                                 cacheAge: `${(dataAge / (1000 * 60 * 60)).toFixed(1)} hours`,
                                 threshold: `${this.CACHE_FRESHNESS_THRESHOLD} hours`,
@@ -1120,11 +601,11 @@ class ExecutionDataManager {
                         
                         // If our cache is fresh enough and covers the date range, use it
                         if (!needsRefresh) {
-                            console.log(`DEBUG: Cache hit for non-ROI job ${jobId} - should not happen on clean cache`, {
-                                dataAge: `${(dataAge / (1000 * 60)).toFixed(1)} minutes`,
-                                cacheTTL: `${(this.EXECUTION_CACHE_TTL / (1000 * 60 * 60)).toFixed(1)} hours`,
-                                refreshThreshold: `${this.CACHE_FRESHNESS_THRESHOLD} hours`
-                            });
+                            // console.log(`DEBUG: Cache hit for non-ROI job ${jobId} - should not happen on clean cache`, {
+                            //     dataAge: `${(dataAge / (1000 * 60)).toFixed(1)} minutes`,
+                            //     cacheTTL: `${(this.EXECUTION_CACHE_TTL / (1000 * 60 * 60)).toFixed(1)} hours`,
+                            //     refreshThreshold: `${this.CACHE_FRESHNESS_THRESHOLD} hours`
+                            // });
                             // Log the cache hit with extra debug info
                             this.logGroup('getJobExecutions:cacheHit:nonRoi', {
                                 jobId,
@@ -1134,9 +615,7 @@ class ExecutionDataManager {
                                 cachedDateRange: cachedData.dateRange || 'unknown',
                                 requestedDateRange: dateRange
                             });
-                            
-                            this.metrics.cacheHits++;
-                            
+
                             // Filter by date if needed
                             let result;
                             if (timeWindow && timeWindow > 0) {
@@ -1146,7 +625,7 @@ class ExecutionDataManager {
                                 result = cachedData.data;
                             }
                             
-                            console.log(`DEBUG: Returning ${result.length} cached executions for non-ROI job ${jobId} - should not happen on first load`);
+                            // console.log(`DEBUG: Returning ${result.length} cached executions for non-ROI job ${jobId} - should not happen on first load`);
                             return result;
                         }
                     }
@@ -1202,9 +681,8 @@ class ExecutionDataManager {
                     }
                 } else {
                     // No cached data at all for a job without ROI, we must fetch it
-                    console.log(`DEBUG: No cached data for non-ROI job ${jobId}, SHOULD be fetching via API`);
+                    // console.log(`DEBUG: No cached data for non-ROI job ${jobId}, SHOULD be fetching via API`);
                     this.log('getJobExecutions', `No cached data for non-ROI job ${jobId}, fetching for the first time`);
-                    this.metrics.cacheMisses++;
                     return await this.fetchExecutionsWithWorker(jobId, timeWindow);
                 }
             }
@@ -1231,9 +709,7 @@ class ExecutionDataManager {
                         requestedDateRange: dateRange,
                         hasRoiMetrics
                     });
-                    
-                    this.metrics.cacheHits++;
-                    
+
                     // Filter by date if needed
                     if (timeWindow && timeWindow > 0) {
                         const cutoffDate = moment().startOf('day').subtract(timeWindow, 'days');
@@ -1290,10 +766,6 @@ class ExecutionDataManager {
                     }
                 }
             }
-            
-            // No cache hit, fetch data
-            this.metrics.cacheMisses++;
-            
             this.log('getJobExecutions', `Cache miss for job ${jobId}, using worker to fetch data`);
             return await this.fetchExecutionsWithWorker(jobId, timeWindow);
         } catch (error) {
@@ -1307,7 +779,7 @@ class ExecutionDataManager {
     // We've removed direct API fetching and are only using the worker
     // This method is kept as a stub for compatibility, but redirects to worker implementation
     async fetchExecutions(jobId, timeWindow) {
-        console.log(`DEBUG: fetchExecutions called for job ${jobId} - this is where we should fetch fresh data for non-ROI jobs`);
+        // console.log(`DEBUG: fetchExecutions called for job ${jobId} - this is where we should fetch fresh data for non-ROI jobs`);
         this.log('fetchExecutions', `Direct API fetch is disabled - redirecting to worker for job ${jobId}`);
         return this.fetchExecutionsWithWorker(jobId, timeWindow);
     }
@@ -1562,11 +1034,6 @@ class ExecutionDataManager {
             // Update the job registry in our own DB
             await this.set(this.DB_CONFIG.stores.jobCache, jobInfo);
             
-            // Also update our in-memory registry for faster access
-            this.processedJobRegistry.set(jobId, {
-                timestamp: jobInfo.timestamp,
-                hasRoi: jobInfo.hasRoi !== undefined ? !!jobInfo.hasRoi : null
-            });
             
             this.log('cacheExecutions', `Cached ${dataToStore.length} executions for job ${jobId} in Job Metrics database`, {
                 hasRoiMetrics: jobInfo.hasRoi !== undefined ? !!jobInfo.hasRoi : 'undetermined'
@@ -1601,32 +1068,7 @@ class ExecutionDataManager {
         
         return filteredExecutions;
     }
-    
-    // Get cache metrics
-    getMetrics() {
-        const totalRequests = this.metrics.cacheHits + this.metrics.cacheMisses;
-        const cacheHitRate = totalRequests > 0 ? 
-            (this.metrics.cacheHits / totalRequests * 100).toFixed(2) + '%' : 'N/A';
-        
-        return {
-            cacheHits: this.metrics.cacheHits,
-            cacheMisses: this.metrics.cacheMisses,
-            apiRequests: this.metrics.apiRequests,
-            workerRequests: this.metrics.workerRequests,
-            cacheHitRate,
-            errorCount: this.metrics.errors.length,
-            dbInitialized: this.dbInitialized,
-            roiDbConnected: !!this.roiDb,
-            jobMetricsDbConnected: !!this.db,
-            registrySize: this.processedJobRegistry.size,
-            workerInitialized: this.workerInitialized,
-            databases: {
-                roiDb: this.ROI_DB_CONFIG.name,
-                jobMetricsDb: this.DB_CONFIG.name
-            }
-        };
-    }
-    
+
     /**
      * Initialize web worker for processing with locking mechanism
      * to prevent concurrent initializations
@@ -1684,38 +1126,8 @@ class ExecutionDataManager {
                 let workerUrl = '';
                 
                 try {
-                    // Get all scripts in the document
-                    const scripts = Array.from(document.scripts);
-                    
-                    // Find the plugin script - using same pattern as ROI summary
-                    const pluginScript = scripts.find(script => 
-                        script.src.includes('ui-jobmetrics/js/jobmetrics')
-                    );
-                    
-                    if (!pluginScript) {
-                        // If we can't find the script, try a different approach
-                        this.log('_doInitWorker', 'Could not find plugin script with direct search');
-                        
-                        if (typeof rundeckPage !== 'undefined' && typeof rundeckPage.pluginBaseUrl === 'function') {
-                            const basePath = rundeckPage.pluginBaseUrl('ui-jobmetrics');
-                            if (basePath) {
-                                workerUrl = `${basePath}/js/lib/jobMetricsWorker.js`;
-                                this.log('_doInitWorker', `Using rundeckPage.pluginBaseUrl: ${basePath}`);
-                            } else {
-                                throw new Error('Could not get plugin base URL from rundeckPage');
-                            }
-                        } else {
-                            throw new Error('Could not find plugin script path');
-                        }
-                    } else {
-                        // Use the same path derivation as ROI plugin
-                        workerUrl = pluginScript.src.replace('jobmetrics.js', 'lib/jobMetricsWorker.js');
-                        this.log('_doInitWorker', `Found plugin script: ${pluginScript.src}`);
-                    }
-
-                    // Log the worker URL for debugging
-                    this.log('_doInitWorker', `Attempting to load worker from: ${workerUrl}`);
-                    
+                    // Use the same path derivation as ROI plugin
+                    workerUrl = '/assets/pro/ui-job-metrics/lib/jobMetricsWorker.js'
                     // Create worker
                     this.worker = new Worker(workerUrl);
                 } catch (workerError) {
@@ -1745,8 +1157,7 @@ class ExecutionDataManager {
                         this.workerInitFailCount = 0; // Reset failure counter on success
                         this.log('_doInitWorker', 'Worker initialized successfully');
                         
-                        // Start periodic health checks on successful initialization
-                        this.startPeriodicHealthChecks();
+                        // Removed health checks to improve performance
                         
                         resolve(this.worker);
                     }
@@ -1868,8 +1279,7 @@ class ExecutionDataManager {
         this.log('terminateWorker', 'Terminating worker thread');
         
         try {
-            // Stop health check interval
-            this.stopPeriodicHealthChecks();
+            // Health check functionality removed
             
             // Handle all pending requests
             if (this.pendingRequests.size > 0) {
@@ -1909,263 +1319,6 @@ class ExecutionDataManager {
             this.workerInitialized = false;
         }
     }
-    
-    /**
-     * Restart the worker thread with better error handling
-     * This will terminate any existing worker and initialize a new one
-     */
-    async restartWorker() {
-        this.log('restartWorker', 'Restarting worker thread');
-        
-        // First terminate the existing worker
-        this.terminateWorker();
-        
-        // Reset failure count to allow more retries after a manual restart
-        this.workerInitFailCount = 0;
-        
-        try {
-            // Initialize a new worker
-            await this.initWorker();
-            this.log('restartWorker', 'Worker restarted successfully');
-            
-            // Check if worker is healthy after restart
-            try {
-                const health = await this.checkWorkerHealth();
-                this.log('restartWorker', 'Worker health check after restart:', health);
-                return true;
-            } catch (healthError) {
-                this.logError('restartWorker', new Error('Worker restarted but health check failed'), { cause: healthError });
-                return false;
-            }
-        } catch (error) {
-            this.logError('restartWorker', error);
-            return false;
-        }
-    }
-    
-    /**
-     * Reinitialize worker with exponential backoff retry
-     * This is used when worker initialization or health check fails
-     */
-    async reinitializeWorker() {
-        this.log('reinitializeWorker', 'Attempting to reinitialize worker with exponential backoff');
-        
-        // Maximum number of retries
-        const maxRetries = this.maxWorkerInitRetries;
-        let retryCount = 0;
-        let success = false;
-        
-        // Terminate any existing worker
-        this.terminateWorker();
-        
-        // Reset failure counter for a fresh start
-        this.workerInitFailCount = 0;
-        
-        while (retryCount < maxRetries && !success) {
-            try {
-                // Calculate backoff delay: 1s, 2s, 4s, etc.
-                const backoffDelay = Math.min(1000 * Math.pow(2, retryCount), 8000);
-                
-                this.log('reinitializeWorker', `Retry ${retryCount + 1}/${maxRetries} after ${backoffDelay}ms delay`);
-                
-                // Wait before retry
-                if (retryCount > 0) {
-                    await new Promise(resolve => setTimeout(resolve, backoffDelay));
-                }
-                
-                // Attempt to initialize the worker
-                await this._doInitWorker();
-                
-                // Check worker health to confirm it's working properly
-                await this.checkWorkerHealth();
-                
-                success = true;
-                this.log('reinitializeWorker', 'Worker successfully reinitialized');
-            } catch (error) {
-                retryCount++;
-                this.logError('reinitializeWorker', error, { 
-                    retryCount, 
-                    maxRetries,
-                    willRetry: retryCount < maxRetries
-                });
-                
-                // Make sure worker is properly terminated before retry
-                this.terminateWorker();
-            }
-        }
-        
-        if (!success) {
-            throw new Error(`Worker reinitialization failed after ${maxRetries} attempts`);
-        }
-        
-        return true;
-    }
-    
-    /**
-     * Check worker health by requesting metrics
-     * This can be used to determine if the worker is responsive
-     */
-    async checkWorkerHealth() {
-        if (!this.worker || !this.workerInitialized) {
-            return Promise.reject(new Error('Worker not initialized'));
-        }
-        
-        // Create a unique request ID
-        const requestId = this.getNextRequestId();
-        
-        // Update last health check timestamp
-        this.lastHealthCheck = Date.now();
-        
-        // Create a promise that will be resolved when the worker responds
-        return new Promise((resolve, reject) => {
-            this.pendingRequests.set(requestId, {
-                type: 'healthCheck',
-                timestamp: Date.now(),
-                resolve,
-                reject
-            });
-            
-            // Set a timeout for health check response
-            setTimeout(() => {
-                if (this.pendingRequests.has(requestId)) {
-                    const error = new Error('Worker health check timeout');
-                    this.logError('checkWorkerHealth:timeout', error);
-                    this.pendingRequests.get(requestId).reject(error);
-                    this.pendingRequests.delete(requestId);
-                }
-            }, 5000); // 5 second timeout for health check
-            
-            // Request metrics from the worker
-            this.worker.postMessage({
-                type: 'getMetrics',
-                id: requestId
-            });
-            
-            this.log('checkWorkerHealth', 'Health check request sent to worker');
-        });
-    }
-    
-    /**
-     * Start periodic health checks for the worker
-     * This helps to detect worker issues early and potentially recover
-     */
-    startPeriodicHealthChecks() {
-        // Clear any existing interval
-        this.stopPeriodicHealthChecks();
-        
-        this.log('startPeriodicHealthChecks', `Starting health checks every ${this.HEALTH_CHECK_INTERVAL / 1000} seconds`);
-        
-        this.healthCheckIntervalId = setInterval(() => {
-            this.performHealthCheck()
-                .catch(error => {
-                    this.logError('periodicHealthCheck', error);
-                    
-                    // If worker is unhealthy, try to recover it
-                    return this.handleUnhealthyWorker()
-                        .catch(recoveryError => {
-                            this.logError('workerRecoveryFailed', recoveryError);
-                        });
-                });
-        }, this.HEALTH_CHECK_INTERVAL);
-    }
-    
-    /**
-     * Stop periodic health checks
-     */
-    stopPeriodicHealthChecks() {
-        if (this.healthCheckIntervalId) {
-            clearInterval(this.healthCheckIntervalId);
-            this.healthCheckIntervalId = null;
-        }
-    }
-    
-    /**
-     * Perform a health check and handle the result
-     */
-    async performHealthCheck() {
-        this.log('performHealthCheck', 'Checking worker health');
-        
-        // Skip if worker is not initialized
-        if (!this.worker || !this.workerInitialized) {
-            this.log('performHealthCheck', 'Worker not initialized, skipping health check');
-            return { status: 'notInitialized' };
-        }
-        
-        try {
-            // Request health metrics from worker
-            const metrics = await this.checkWorkerHealth();
-            
-            this.log('performHealthCheck', 'Worker is healthy', metrics);
-            return { status: 'healthy', metrics };
-        } catch (error) {
-            this.logError('performHealthCheck', error);
-            return { status: 'unhealthy', error };
-        }
-    }
-    
-    /**
-     * Handle an unhealthy worker
-     * This will attempt to recover the worker through reinitialization
-     */
-    async handleUnhealthyWorker() {
-        this.log('handleUnhealthyWorker', 'Worker is unhealthy, attempting recovery');
-        
-        try {
-            await this.reinitializeWorker();
-            this.log('handleUnhealthyWorker', 'Worker successfully recovered');
-            
-            // Restart health checks to reset the interval timing
-            this.startPeriodicHealthChecks();
-            
-            return { status: 'recovered' };
-        } catch (error) {
-            this.logError('handleUnhealthyWorker', error);
-            throw new Error('Failed to recover unhealthy worker: ' + error.message);
-        }
-    }
-    
-    /**
-     * Helper to check if date ranges overlap or are adjacent
-     */
-    isDateRangeOverlappingOrAdjacent(range1, range2) {
-        if (!range1 || !range2) return false;
-        
-        // Convert dates to moment objects for easier comparison and normalize to day boundaries
-        // Use YYYY-MM-DD format to ensure proper date comparison without time parts
-        const range1Begin = moment(range1.begin).startOf('day');
-        const range1End = moment(range1.end).endOf('day');
-        const range2Begin = moment(range2.begin).startOf('day');
-        const range2End = moment(range2.end).endOf('day');
-        
-        // For debugging
-        const debugRanges = {
-            range1: `${range1.begin} to ${range1.end}`,
-            range2: `${range2.begin} to ${range2.end}`,
-            range1Moment: `${range1Begin.format('YYYY-MM-DD')} to ${range1End.format('YYYY-MM-DD')}`,
-            range2Moment: `${range2Begin.format('YYYY-MM-DD')} to ${range2End.format('YYYY-MM-DD')}`
-        };
-        
-        // Check if ranges overlap or are at most 1 day apart
-        // Using moment's built-in isBefore/isAfter with granularity for more reliable comparison
-        const areOverlapping = !(
-            range1End.clone().add(1, 'day').isBefore(range2Begin, 'day') || 
-            range2End.clone().add(1, 'day').isBefore(range1Begin, 'day')
-        );
-        
-        // If in debug mode, log the comparison details
-        if (this.DEBUG) {
-            this.logGroup('isDateRangeOverlappingOrAdjacent', {
-                ...debugRanges,
-                areOverlapping,
-                range1BeginStr: range1Begin.format('YYYY-MM-DD'),
-                range1EndStr: range1End.format('YYYY-MM-DD'),
-                range2BeginStr: range2Begin.format('YYYY-MM-DD'),
-                range2EndStr: range2End.format('YYYY-MM-DD')
-            });
-        }
-        
-        return areOverlapping;
-    }
 
     /**
      * Check if a job has ROI metrics or not
@@ -2183,28 +1336,6 @@ class ExecutionDataManager {
             return false;
         }
         
-        // First check if we already know this job's ROI status
-        if (this.processedJobRegistry.has(jobId) && 'hasRoi' in this.processedJobRegistry.get(jobId)) {
-            const registryData = this.processedJobRegistry.get(jobId);
-            const regTimestamp = registryData.timestamp || 0;
-            const now = Date.now();
-            
-            // Only use registry data if it's not too old (less than 8 hours)
-            // This helps detect jobs that may have changed their ROI status
-            if (now - regTimestamp < 8 * 60 * 60 * 1000) {
-                this.log('checkJobHasRoiMetrics', `Using cached ROI status for job ${jobId}`, {
-                    hasRoi: registryData.hasRoi,
-                    fromRegistry: true,
-                    age: `${((now - regTimestamp) / (1000 * 60)).toFixed(1)} minutes`
-                });
-                return registryData.hasRoi;
-            } else {
-                this.log('checkJobHasRoiMetrics', `Registry data for job ${jobId} is stale, checking caches`, {
-                    age: `${((now - regTimestamp) / (1000 * 60 * 60)).toFixed(1)} hours`
-                });
-                // Fall through to check caches
-            }
-        }
 
         // Next check if job cache has this info
         try {
@@ -2218,11 +1349,6 @@ class ExecutionDataManager {
                 const isAssumed = !!ourJobCache.assumed;
                 
                 if (!isAssumed && !isCacheStale) {
-                    // Update the registry for faster access
-                    this.processedJobRegistry.set(jobId, {
-                        timestamp: Date.now(),
-                        hasRoi: !!ourJobCache.hasRoi
-                    });
                     
                     this.log('checkJobHasRoiMetrics', `Found ROI status in our job cache for ${jobId}`, {
                         hasRoi: !!ourJobCache.hasRoi,
@@ -2258,14 +1384,7 @@ class ExecutionDataManager {
                         // It's safe to access the store
                         const roiJobCache = await this.getFromDb(this.roiDb, this.ROI_DB_CONFIG.stores.jobCache, jobId);
                         if (roiJobCache && ('hasRoi' in roiJobCache)) {
-                            // Update our cache and registry with this info
                             const hasRoi = !!roiJobCache.hasRoi;
-                            
-                            // Update the registry
-                            this.processedJobRegistry.set(jobId, {
-                                timestamp: Date.now(),
-                                hasRoi: hasRoi
-                            });
                             
                             // Update our DB cache
                             const jobInfo = {
@@ -2301,14 +1420,6 @@ class ExecutionDataManager {
             
             this.log('checkJobHasRoiMetrics', `No cached ROI status for job ${jobId}, assuming no ROI metrics`);
             
-            // Mark this job as having no ROI in our registry and cache
-            this.processedJobRegistry.set(jobId, {
-                timestamp: Date.now(),
-                hasRoi: false,
-                assumed: true  // Mark this as an assumption rather than validated
-            });
-            
-            // Cache this assumption for later
             const jobInfo = {
                 id: jobId,
                 timestamp: Date.now(),
@@ -2330,11 +1441,7 @@ class ExecutionDataManager {
     }
 
     /**
-     * Check if cache for the given job and date range needs refreshing
-     */
-    /**
      * Check if we need to refresh the cache, considering both our cache and ROI's cache
-     * This is a critical function for preventing redundant API calls
      */
     async needsCacheRefresh(cachedData, dateRange) {
         if (!cachedData) return true;
@@ -2401,9 +1508,6 @@ class ExecutionDataManager {
                                 this.set(this.DB_CONFIG.stores.executionCache, copiedData)
                                     .catch(err => this.logError('needsCacheRefresh:copyCache', err, { jobId }));
                             }
-                            
-                            // Skip refresh if ROI data is fresh - this is key to prevent redundant API calls
-                            return false;
                         }
                     }
                 }
@@ -2439,7 +1543,7 @@ class ExecutionDataManager {
             const cachedBegin = moment(cachedData.dateRange.begin).startOf('day');
             const cachedEnd = moment(cachedData.dateRange.end).endOf('day');
             
-            // Compare the dates using isame to ensure proper date comparison
+            // Compare the dates using moment methods to ensure proper date comparison
             const isBeginCovered = requestedBegin.isSameOrAfter(cachedBegin, 'day');
             const isEndCovered = requestedEnd.isSameOrBefore(cachedEnd, 'day');
             
@@ -2465,7 +1569,7 @@ class ExecutionDataManager {
      * Fetch executions using the worker
      */
     async fetchExecutionsWithWorker(jobId, timeWindow) {
-        console.log(`DEBUG: fetchExecutionsWithWorker called for job ${jobId} - THIS IS THE ACTUAL FETCH IMPLEMENTATION`);
+        // console.log(`DEBUG: fetchExecutionsWithWorker called for job ${jobId} - THIS IS THE ACTUAL FETCH IMPLEMENTATION`);
         // Check if there's already a fetch in progress for this job with similar timeWindow
         const inProgressKey = `worker_${jobId}_${timeWindow}`;
         if (this.fetchOperationsInProgress.has(inProgressKey)) {
@@ -2505,9 +1609,7 @@ class ExecutionDataManager {
                 this.fetchOperationsInProgress.delete(inProgressKey); // Clean up tracking
                 return await this.fetchExecutions(jobId, timeWindow);
             }
-            
-            this.metrics.workerRequests++;
-            
+
             // Calculate date range from timeWindow using moment to ensure consistent format with other methods
             const dateRange = {
                 begin: moment().startOf('day').subtract(timeWindow, 'days').format('YYYY-MM-DD'),
@@ -2531,8 +1633,6 @@ class ExecutionDataManager {
                         executionCount: cachedData.data.length,
                         dateRange
                     });
-                    
-                    this.metrics.cacheHits++;
                     this.fetchOperationsInProgress.delete(inProgressKey); // Clean up tracking
                     return cachedData.data;
                 }

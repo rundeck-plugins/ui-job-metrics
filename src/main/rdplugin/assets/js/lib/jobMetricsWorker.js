@@ -1,5 +1,5 @@
 // jobMetricsWorker.js
-const DEBUG = true;
+const DEBUG = false;
 
 // Store global app data passed from main thread
 let rdBase = '';
@@ -17,17 +17,17 @@ function log(component, message, data = null) {
         message,
         ...(data && { data })
     };
-    console.log(`[JobMetrics Worker] ${component}:`, logData);
+    // console.log(`[JobMetrics Worker] ${component}:`, logData);
 }
 
 function logError(component, error, context = {}) {
     if (!DEBUG) return;
-    console.error(`[JobMetrics Worker Error] ${component}:`, {
-        message: error.message,
-        stack: error.stack,
-        context,
-        timestamp: new Date().toISOString()
-    });
+    // console.error(`[JobMetrics Worker Error] ${component}:`, {
+    //     message: error.message,
+    //     stack: error.stack,
+    //     context,
+    //     timestamp: new Date().toISOString()
+    // });
 }
 
 // Concurrency Pool for limiting API requests
@@ -108,7 +108,7 @@ const requestPool = new ConcurrencyPool();
 // Updated to use the same endpoint approach as ROI summary plugin
 async function fetchExecutions(jobId, dateRange) {
     const startTime = performance.now();
-    log('fetchExecutions:start', { jobId, dateRange });
+    // log('fetchExecutions:start', { jobId, dateRange });
 
     if (!rdBase || !projectName) {
         throw new Error('Worker not initialized with required app data: rdBase and projectName are needed');
@@ -163,12 +163,12 @@ async function fetchExecutions(jobId, dateRange) {
             const executions = responseData.executions || [];
             allExecutions.push(...executions);
 
-            log('fetchExecutions:progress', {
-                jobId,
-                batchSize: executions.length,
-                totalSoFar: allExecutions.length,
-                offset
-            });
+            // log('fetchExecutions:progress', {
+            //     jobId,
+            //     batchSize: executions.length,
+            //     totalSoFar: allExecutions.length,
+            //     offset
+            // });
 
             if (executions.length < MAX_PER_PAGE) {
                 hasMore = false;
@@ -191,11 +191,11 @@ async function fetchExecutions(jobId, dateRange) {
     }
 
     const duration = performance.now() - startTime;
-    log('fetchExecutions:complete', {
-        jobId,
-        totalExecutions: allExecutions.length,
-        duration: `${duration.toFixed(2)}ms`
-    });
+    // log('fetchExecutions:complete', {
+    //     jobId,
+    //     totalExecutions: allExecutions.length,
+    //     duration: `${duration.toFixed(2)}ms`
+    // });
 
     return allExecutions;
 }
@@ -357,7 +357,7 @@ onmessage = async function(e) {
                 
             case 'getMetrics':
                 // Handler for metrics requests
-                log('getMetrics', 'Health check received');
+                // log('getMetrics', 'Health check received');
                 
                 // Get the latest concurrency pool metrics
                 const poolMetrics = requestPool.getMetrics();

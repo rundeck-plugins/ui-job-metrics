@@ -1,9 +1,8 @@
 name: ui-jobmetrics
 rundeckPluginVersion: 1.2
 author: PagerDuty
-url: https://github.com/rundeck-plugins/ui-execution-summary
 date: 2024-01-29
-version: 1.0.0
+version: 1.2.0
 providers:
     - name: ui-jobmetrics
       service: UI
