@@ -3,9 +3,21 @@ asset-pipeline = "3.4.0"
 sass-asset-pipeline = "3.4.0"
 axion-release = "1.18.12"
 
+# Security vulnerability fixes
+commons-io = "2.18.0"
+commons-text = "1.12.0"
+commons-lang3 = "3.18.0"
+junit = "4.13.2"
+
 [libraries]
 assetPipeline = { module = "com.bertramlabs.plugins:asset-pipeline-gradle", version.ref = "asset-pipeline" }
 sassAssetPipeline = { module = "com.bertramlabs.plugins:sass-asset-pipeline", version.ref = "sass-asset-pipeline" }
+
+# Security vulnerability fixes
+commonsIo = { module = "commons-io:commons-io", version.ref = "commons-io" }
+commonsText = { module = "org.apache.commons:commons-text", version.ref = "commons-text" }
+commonsLang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+junitJunit = { module = "junit:junit", version.ref = "junit" }
 
 [plugins]
 axionRelease = { id = "pl.allegro.tech.build.axion-release", version.ref = "axion-release" }
