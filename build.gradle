@@ -136,6 +136,23 @@ dependencies {
     implementation libs.sassAssetPipeline
 }
 
+// Configure dependency resolution to fix security vulnerabilities
+configurations.all {
+    resolutionStrategy {
+        // Force newer versions of vulnerable dependencies to fix high severity CVEs
+        force(
+            libs.commonsIo.get(),           // Fix Directory Traversal and Resource Exhaustion (Medium->High)
+            libs.commonsText.get(),         // Fix Arbitrary Code Execution (High)
+            libs.commonsLang3.get(),        // Fix Uncontrolled Recursion (High)
+            libs.junitJunit.get()           // Fix Information Exposure (Low->Medium)
+        )
+    }
+    
+    // Exclude vulnerable dependencies that cannot be easily fixed
+    exclude group: 'org.mozilla', module: 'rhino'      // XXE Injection vulnerability (High)
+    exclude group: 'org.sharegov', module: 'mjson'     // DoS vulnerability with no patch available (High)
+}
+
 artifacts {
     archives pluginZip
 }
