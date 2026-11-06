@@ -332,9 +332,10 @@ function initJobMetrics () {
           foundJobs.each(function (idx, el) {
             var jel = jQuery(el)
             var job = new JobMetrics({
-              id: jel.data('jobId'),
-              name: jel.data('jobName'),
-              group: jel.data('jobGroup'),
+              // attr() keeps the raw string; data() turns names like "2024", "true" or "{...}" into numbers, booleans or objects
+              id: jel.attr('data-job-id'),
+              name: jel.attr('data-job-name'),
+              group: jel.attr('data-job-group'),
               project: self.project()
             })
             jobsArr.push(job)
